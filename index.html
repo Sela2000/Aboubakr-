@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام تسجيل الحضور والغياب - أبو بكر الصديق ع ب</title>
+    <!-- مكتبة قراءة ملفات الإكسل -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- مكتبة توليد ملفات الـ PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { text-align: center; color: #333; margin-bottom: 5px; font-size: 1.5rem; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 0.9rem; }
+        #reader { width: 100%; border-radius: 15px; overflow: hidden; margin-bottom: 10px; background: #000; min-height: 200px; display: none; }
+        #reader.active { display: block; }
+        .scan-result {
+            background: #f0f9ff; border: 2px solid #3b82f6;
+            border-radius: 15px; padding: 15px; margin-bottom: 15px; display: none;
+        }
+        .scan-result.show { display: block; animation: slideIn 0.3s ease; }
+        .scan-result.already { background: #fef3c7; border: 2px solid #f59e0b; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .scan-result h3 { color: #1e40af; margin-bottom: 8px; }
+        .scan-result p { color: #374151; font-size: 0.95rem; margin-bottom: 5px; }
+        .success-badge { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; margin-top: 5px; }
+        .already-badge { display: inline-block; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; margin-top: 5px; }
+        .students-list { max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; }
+        .student-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f3f4f6; }
+        .student-item:last-child { border-bottom: none; }
+        .student-info { flex: 1; }
+        .student-name { font-weight: bold; color: #1f2937; font-size: 0.95rem; }
+        .student-details { color: #6b7280; font-size: 0.8rem; }
+        .status-btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+        .status-present { background: #d1fae5; color: #065f46; }
+        .status-absent { background: #fee2e2; color: #991b1b; }
+        .status-present.active { background: #10b981; color: white; }
+        .status-absent.active { background: #ef4444; color: white; }
+        .btn-group { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; transition: all 0.2s; font-weight: bold; min-width: 120px; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-info { background: #3b82f6; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .date-picker { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 1rem; margin-bottom: 15px; text-align: center; }
+        .filter-section { display: flex; gap: 10px; margin-bottom: 15px; }
+        .filter-section select { flex: 1; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 0.9rem; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 12px 24px; border-radius: 10px; font-size: 0.9rem; z-index: 1000; display: none; }
+        .toast.show { display: block; }
+        .section-title { font-size: 1.1rem; color: #374151; margin: 20px 0 10px; padding-right: 10px; border-right: 4px solid #667eea; }
+        .hint { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 10px; margin-bottom: 15px; font-size: 0.85rem; color: #92400e; text-align: center; }
+        .export-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; padding: 20px; }
+        .export-modal.show { display: flex; }
+        .export-box { background: white; border-radius: 20px; padding: 20px; max-width: 500px; width: 100%; max-height: 80vh; overflow-y: auto; }
+        .export-box h2 { text-align: center; margin-bottom: 15px; color: #333; }
+        .export-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.85rem; }
+        .export-table th { background: #4472C4; color: white; padding: 8px; text-align: right; position: sticky; top: 0; }
+        .export-table td { padding: 8px; border: 1px solid #ddd; text-align: right; }
+        .export-table tr:nth-child(even) { background: #f9fafb; }
+        .export-present { background: #d4edda !important; }
+        .export-absent { background: #f8d7da !important; }
+        .close-btn { background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; width: 100%; margin-top: 5px; }
+        .copy-btn { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; width: 100%; margin-bottom: 10px; }
+        .copy-textarea { width: 100%; height: 200px; font-family: monospace; font-size: 0.8rem; direction: ltr; text-align: left; border: 2px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-bottom: 10px; resize: vertical; }
+        .class-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+        .class-stat-box { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; }
+        .class-stat-box h4 { color: #1e293b; margin-bottom: 8px; font-size: 1rem; }
+        .class-stat-box .numbers { display: flex; justify-content: space-around; }
+        .class-stat-box .num { font-size: 1.3rem; font-weight: bold; }
+        .class-stat-box .num.present { color: #10b981; }
+        .class-stat-box .num.absent { color: #ef4444; }
+        .class-stat-box .num.total { color: #64748b; font-size: 0.9rem; }
+        .session-ended { background: #fee2e2; border: 2px solid #ef4444; border-radius: 10px; padding: 15px; margin-bottom: 15px; text-align: center; color: #991b1b; font-weight: bold; display: none; }
+        .session-ended.show { display: block; }
+        .manage-box { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 15px; padding: 15px; margin-top: 15px; }
+        .manage-box h3 { color: #374151; margin-bottom: 12px; text-align: center; }
+        .manage-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
+        .manage-grid input, .manage-grid select { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 9px; font-size: .9rem; }
+        .manage-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+        .manage-buttons .btn { min-width: 110px; }
+        .grade-filter { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: .9rem; margin-bottom: 10px; }
+        .offline-badge { background: #10b981; color: white; display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; margin-bottom: 10px; }
+        .master-stats-card { background: #1e293b; color: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .master-stats-card h3 { font-size: 1.1rem; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #334155; padding-bottom: 6px; }
+        .master-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+        .master-item .val { font-size: 1.4rem; font-weight: bold; }
+        .master-item .lbl { font-size: 0.75rem; color: #94a3b8; }
+        .backup-status { text-align:center; font-size:.8rem; color:#64748b; margin-top:8px; min-height:18px; }
+        .mini-btn { padding: 3px 8px; font-size: 0.75rem; border-radius: 5px; border: none; cursor: pointer; margin-top: 4px; }
+        .edit-mini { background: #3b82f6; color: white; }
+        .delete-mini { background: #ef4444; color: white; }
+        .camera-control { text-align: center; margin-bottom: 15px; }
+        .search-box-container { background: #e0f2fe; border: 2px solid #38bdf8; border-radius: 15px; padding: 15px; margin-bottom: 15px; }
+        .search-box-container h3 { color: #0369a1; margin-bottom: 8px; font-size: 1rem; text-align: center; }
+        .search-input-row { display: flex; gap: 8px; }
+        .search-input-row input { flex: 1; padding: 10px; border: 2px solid #bae6fd; border-radius: 9px; font-size: 0.9rem; }
+        .search-results-dropdown { max-height: 150px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 5px; display: none; }
+        .search-result-item { padding: 8px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; }
+        .search-result-item:hover { background: #f0fdf4; }
+        @media(max-width:480px){ 
+            .manage-grid, .manage-buttons { grid-template-columns: 1fr; } 
+            .master-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .student-item { align-items: flex-start; flex-direction: column; gap: 7px; } 
+            .student-item > div:last-child { width: 100%; } 
+            .status-btn { padding: 7px 10px; } 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 نظام تسجيل الغياب</h1>
+        <p class="subtitle">امسح الباركود بالكاميرا أو ارفع ملف إكسل</p>
+
+        <div style="text-align:center;">
+            <span class="offline-badge">✅ يشتغل بدون نت 100%</span>
+        </div>
+
+        <div class="hint">
+            💡 <strong>نصيحة:</strong> تأكد أن كود الباركود يحتوي على الرقم القومي أو اسم الطالب المطابق لملف الإكسل.
+        </div>
+
+        <!-- صندوق البحث السريع لتسجيل حضور أو غياب يدوي -->
+        <div class="search-box-container">
+            <h3>🔍 بحث سريع عن طالب (لتعديل الحضور يدوياً)</h3>
+            <div class="search-input-row">
+                <input type="text" id="quickSearchInput" placeholder="اكتب اسم الطالب أو الرقم القومي للبحث..." oninput="handleQuickSearch(this.value)">
+            </div>
+            <div id="quickSearchResults" class="search-results-dropdown"></div>
+        </div>
+
+        <div id="sessionEndedMsg" class="session-ended">
+            ✅ تم إنهاء الجلسة! كل اللي ما تمش مسحهم اتسجلوا غياب.
+        </div>
+
+        <div class="manage-box" style="background:#eef2ff;border-color:#c7d2fe;">
+            <h3>🏫 بيانات المدرسة للتقارير</h3>
+            <div class="manage-grid">
+                <input id="schoolName" type="text" value="أبو بكر الصديق ع ب" placeholder="اسم المدرسة">
+                <input id="educationAdmin" type="text" placeholder="الإدارة التعليمية">
+                <input id="schoolStage" type="text" placeholder="المرحلة التعليمية">
+                <input id="schoolYear" type="text" placeholder="العام الدراسي">
+            </div>
+            <div class="manage-buttons">
+                <button class="btn btn-primary" onclick="saveSchoolSettings()">💾 حفظ بيانات المدرسة</button>
+            </div>
+        </div>
+
+        <input type="date" id="datePicker" class="date-picker">
+
+        <!-- الإحصائية العامة -->
+        <div class="master-stats-card">
+            <h3 id="masterTitle">📊 الإحصائية العامة (المدرسة بالكامل)</h3>
+            <div class="master-grid">
+                <div class="master-item">
+                    <div id="mTotal" class="val" style="color: #60a5fa;">0</div>
+                    <div class="lbl">إجمالي الطلاب</div>
+                </div>
+                <div class="master-item">
+                    <div id="mPresent" class="val" style="color: #34d399;">0</div>
+                    <div class="lbl">الحاضرين</div>
+                </div>
+                <div class="master-item">
+                    <div id="mAbsent" class="val" style="color: #f87171;">0</div>
+                    <div class="lbl">الغائبين</div>
+                </div>
+                <div class="master-item">
+                    <div id="mPercent" class="val" style="color: #fbbf24;">0%</div>
+                    <div class="lbl">نسبة الحضور</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- إحصائيات الفصول -->
+        <div class="section-title">📈 إحصائيات الفصول والفرق</div>
+        <div class="filter-section" style="margin-bottom: 10px;">
+            <select id="statScopeSelect" onchange="changeStatScope()" style="width: 100%; padding: 10px; border-radius: 10px; border: 2px solid #e5e7eb; font-weight: bold; color: #1e293b;">
+                <option value="school">عرض إحصائيات المدرسة بالكامل</option>
+                <option value="grade_الأول">الصف الأول فقط</option>
+                <option value="grade_الثانى">الصف الثاني فقط</option>
+                <option value="grade_الثالث">الصف الثالث فقط</option>
+            </select>
+        </div>
+        <div id="classStats" class="class-stats"></div>
+
+        <!-- تحكم الكاميرا -->
+        <div class="camera-control">
+            <button class="btn btn-primary" onclick="toggleCamera()" id="camToggleBtn">📷 تشغيل الكاميرا</button>
+        </div>
+        <div id="reader"></div>
+
+        <div id="scanResult" class="scan-result">
+            <h3 id="scanTitle">✅ تم المسح بنجاح</h3>
+            <p><strong>الاسم:</strong> <span id="resName"></span></p>
+            <p><strong>الرقم القومي:</strong> <span id="resId"></span></p>
+            <p><strong>الفصل:</strong> <span id="resClass"></span></p>
+            <span id="scanBadge" class="success-badge">تم تسجيل الحضور</span>
+        </div>
+
+        <div class="filter-section">
+            <select id="classFilter">
+                <option value="all">كل الفصول</option>
+                <option value="1">الفصل 1</option>
+                <option value="2">الفصل 2</option>
+                <option value="3">الفصل 3</option>
+                <option value="4">الفصل 4</option>
+                <option value="5">الفصل 5</option>
+                <option value="6">الفصل 6</option>
+                <option value="7">الفصل 7</option>
+            </select>
+            <select id="statusFilter">
+                <option value="all">كل الحالات</option>
+                <option value="present">حاضر فقط</option>
+                <option value="absent">غائب فقط</option>
+            </select>
+        </div>
+
+        <div class="section-title">🎓 الصف الدراسي</div>
+        <select id="gradeFilter" class="grade-filter">
+            <option value="all">كل الصفوف</option>
+            <option value="الأول">الصف الأول</option>
+            <option value="الثانى">الصف الثاني</option>
+            <option value="الثالث">الصف الثالث</option>
+        </select>
+
+        <div class="manage-box">
+            <h3>📂 استيراد الطلاب من ملف Excel</h3>
+            <div class="manage-buttons" style="justify-content: center;">
+                <button class="btn btn-success" onclick="document.getElementById('excelFile').click()">📊 اختر ملف Excel واستيراد</button>
+            </div>
+            <input id="excelFile" type="file" accept=".xlsx, .xls, .csv" style="display:none" onchange="importExcelFile(this)">
+        </div>
+
+        <div class="manage-box">
+            <h3>👨‍🎓 إضافة طالب يدوي</h3>
+            <div class="manage-grid">
+                <input id="studentName" type="text" placeholder="اسم الطالب">
+                <input id="studentNationalId" type="text" inputmode="numeric" maxlength="14" placeholder="الرقم القومي (14 رقم)">
+                <select id="studentGrade">
+                    <option value="الأول">الصف الأول</option>
+                    <option value="الثانى" selected>الصف الثاني</option>
+                    <option value="الثالث">الصف الثالث</option>
+                </select>
+                <select id="studentClass">
+                    <option value="1">الفصل 1</option>
+                    <option value="2">الفصل 2</option>
+                    <option value="3">الفصل 3</option>
+                    <option value="4">الفصل 4</option>
+                    <option value="5">الفصل 5</option>
+                    <option value="6">الفصل 6</option>
+                    <option value="7">الفصل 7</option>
+                </select>
+            </div>
+            <div class="manage-buttons">
+                <button class="btn btn-success" onclick="addStudent()">➕ إضافة طالب</button>
+                <button class="btn btn-warning" onclick="updateStudent()">✏️ تعديل المحدد</button>
+                <button class="btn btn-danger" onclick="deleteSelectedStudent()">🗑️ حذف المحدد</button>
+                <button class="btn btn-info" onclick="clearStudentForm()">🧹 مسح الحقول</button>
+            </div>
+            <div id="selectedStudentMsg" style="text-align:center;color:#64748b;font-size:.8rem;margin-top:8px;">
+                يمكنك الضغط على «تعديل» أو «حذف» بجوار أي طالب.
+            </div>
+        </div>
+
+        <div class="manage-box backup-box">
+            <h3>💾 النسخ الاحتياطي ونقل البيانات</h3>
+            <div class="manage-buttons">
+                <button class="btn btn-primary" onclick="exportBackup()">⬇️ تصدير نسخة احتياطية</button>
+                <button class="btn btn-info" onclick="document.getElementById('backupFile').click()">⬆️ استيراد نسخة احتياطية</button>
+            </div>
+            <input id="backupFile" type="file" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+        </div>
+
+        <div class="section-title">قائمة الطلاب</div>
+        <div id="studentsList" class="students-list"></div>
+
+        <div class="section-title">📊 التقارير والتصدير (يومي / فصول)</div>
+        <div class="btn-group">
+            <button class="btn btn-warning" onclick="endSession()">✅ إنهاء الجلسة</button>
+            <button class="btn btn-danger" onclick="clearAllStudentsDatabase()">🗑️ مسح كل الطلاب</button>
+            <button class="btn btn-success" onclick="copyAbsentOnly()">📋 نسخ الغائبين فقط</button>
+            <button class="btn btn-success" onclick="showExportTable()">📊 عرض الجدول</button>
+            <button class="btn btn-info" onclick="copyForExcel()">📋 نسخ للإكسل</button>
+            <button class="btn btn-primary" onclick="exportDailyExcel()">📥 تصدير تقرير الإكسل الشامل وفصول</button>
+            <button class="btn btn-danger" onclick="exportDailyPDF()">📑 تصدير تقرير PDF (يومي + فصول)</button>
+            <button class="btn btn-danger" onclick="resetForNewDay()">🔄 إعادة تعيين (يوم جديد)</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="exportModal" class="export-modal">
+        <div class="export-box">
+            <h2>📋 جدول الغياب</h2>
+            <div id="exportTableContainer"></div>
+            <button class="close-btn" onclick="closeExport()">❌ إغلاق</button>
+        </div>
+    </div>
+
+    <div id="copyModal" class="export-modal">
+        <div class="export-box">
+            <h2>📋 بيانات جاهزة للإكسل</h2>
+            <textarea id="excelText" class="copy-textarea" readonly></textarea>
+            <button class="copy-btn" onclick="copyTextArea()">📋 نسخ الكل</button>
+<button class="copy-btn" onclick="sendExcelWhatsApp()">📱 إرسال عبر واتساب</button>
+            <button class="close-btn" onclick="closeCopyModal()">❌ إغلاق</button>
+        </div>
+    </div>
+
+    <div id="absentModal" class="export-modal">
+        <div class="export-box">
+            <h2>📋 قائمة الطلاب الغائبين فقط</h2>
+            <textarea id="absentText" class="copy-textarea" readonly></textarea>
+            <button class="copy-btn" onclick="copyAbsentTextArea()">📋 نسخ الغائبين</button>
+<button class="copy-btn" onclick="sendAbsentWhatsApp()">📱 إرسال الغائبين عبر واتساب</button>
+            <button class="close-btn" onclick="document.getElementById('absentModal').classList.remove('show')">❌ إغلاق</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <script>
+        let students = [];
+        let attendance = {};
+        let html5QrCode = null;
+        let isCameraRunning = false;
+        let selectedStudentIdForEdit = null;
+        let lastScannedId = null;
+        let lastScanTime = 0;
+
+        document.getElementById('datePicker').valueAsDate = new Date();
+
+
+        // ===== إعدادات التقارير فقط =====
+        let schoolSettings = {
+            schoolName: 'أبو بكر الصديق ع ب',
+            educationAdmin: '',
+            schoolStage: '',
+            schoolYear: ''
+        };
+
+        function loadSchoolSettings() {
+            try {
+                const saved = localStorage.getItem('school_report_settings');
+                if (saved) schoolSettings = Object.assign(schoolSettings, JSON.parse(saved));
+            } catch (e) {}
+            ['schoolName','educationAdmin','schoolStage','schoolYear'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = schoolSettings[id] || '';
+            });
+        }
+
+        function saveSchoolSettings() {
+            schoolSettings.schoolName = (document.getElementById('schoolName').value || '').trim() || 'اسم المدرسة';
+            schoolSettings.educationAdmin = (document.getElementById('educationAdmin').value || '').trim();
+            schoolSettings.schoolStage = (document.getElementById('schoolStage').value || '').trim();
+            schoolSettings.schoolYear = (document.getElementById('schoolYear').value || '').trim();
+            localStorage.setItem('school_report_settings', JSON.stringify(schoolSettings));
+            showToast('🏫 تم حفظ بيانات المدرسة');
+        }
+
+        function arabicReportDate() {
+            const v = document.getElementById('datePicker').value;
+            if (!v) return new Date().toLocaleDateString('ar-EG');
+            const p = v.split('-');
+            return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v;
+        }
+
+        function whatsappReport(text) {
+            window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+        }
+
+        function reportHeader(title) {
+            let s = `🏫 ${schoolSettings.schoolName || 'اسم المدرسة'}\n`;
+            s += `${title}\n📅 التاريخ: ${arabicReportDate()}\n`;
+            if (schoolSettings.educationAdmin) s += `🏢 الإدارة التعليمية: ${schoolSettings.educationAdmin}\n`;
+            if (schoolSettings.schoolStage) s += `🎓 المرحلة التعليمية: ${schoolSettings.schoolStage}\n`;
+            if (schoolSettings.schoolYear) s += `📚 العام الدراسي: ${schoolSettings.schoolYear}\n`;
+            return s;
+        }
+
+        function sendAbsentWhatsApp() {
+            const el = document.getElementById('absentText');
+            if (el && el.value.trim()) whatsappReport(el.value);
+            else showToast('لا توجد قائمة غياب للإرسال.');
+        }
+
+        function sendExcelWhatsApp() {
+            const el = document.getElementById('excelText');
+            if (el && el.value.trim()) whatsappReport(el.value);
+            else showToast('لا توجد بيانات للإرسال.');
+        }
+
+        function loadData() {
+            try {
+                const savedStudents = localStorage.getItem('school_students');
+                const savedAttendance = localStorage.getItem('school_attendance');
+                students = savedStudents ? JSON.parse(savedStudents) : [];
+                attendance = savedAttendance ? JSON.parse(savedAttendance) : {};
+            } catch(e) {
+                students = [];
+                attendance = {};
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('school_students', JSON.stringify(students));
+            localStorage.setItem('school_attendance', JSON.stringify(attendance));
+            updateStats();
+            renderClassStats();
+            renderStudentsList();
+        }
+
+        function importExcelFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    processWorkbook(data);
+                    input.value = '';
+                } catch (err) {
+                    tryReaderAsBinary(file);
+                }
+            };
+            reader.onerror = function() {
+                tryReaderAsBinary(file);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function tryReaderAsBinary(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    parseWorkbookSheets(workbook);
+                    document.getElementById('excelFile').value = '';
+                } catch(ex) {
+                    alert('⚠️ عذراً، لم يتمكن المتصفح من قراءة الملف مباشرة. من فضلك احفظ ملف الإكسل على الهاتف ثم اختره مرة أخرى.');
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function processWorkbook(data) {
+            const workbook = XLSX.read(data, { type: 'array' });
+            parseWorkbookSheets(workbook);
+        }
+
+        function parseWorkbookSheets(workbook) {
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (jsonRows.length === 0) {
+                alert('الملف فارغ!');
+                return;
+            }
+
+            let headerRowIndex = -1;
+            let nameCol = -1, idCol = -1, gradeCol = -1, classCol = -1;
+
+            for (let i = 0; i < Math.min(jsonRows.length, 5); i++) {
+                let row = jsonRows[i];
+                if (!row) continue;
+                for (let j = 0; j < row.length; j++) {
+                    let cellVal = String(row[j] || '').trim();
+                    if (cellVal.includes('الاسم')) nameCol = j;
+                    if (cellVal.includes('القومى') || cellVal.includes('القومي')) idCol = j;
+                    if (cellVal.includes('الصف')) gradeCol = j;
+                    if (cellVal.includes('الفصل')) classCol = j;
+                }
+                if (nameCol !== -1 && idCol !== -1) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            if (headerRowIndex === -1) {
+                nameCol = 1; 
+                idCol = 2; 
+                classCol = 3; 
+                gradeCol = 4;
+                headerRowIndex = 0;
+            }
+
+            let addedCount = 0;
+            for (let i = headerRowIndex + 1; i < jsonRows.length; i++) {
+                let row = jsonRows[i];
+                if (!row) continue;
+
+                let name = String(row[nameCol] || '').trim();
+                let id = String(row[idCol] || '').trim();
+                let grade = gradeCol !== -1 ? String(row[gradeCol] || 'الثانى').trim() : 'الثانى';
+                let classNum = classCol !== -1 ? String(row[classCol] || '1').trim() : '1';
+
+                id = id.replace(/\D/g, '');
+
+                if (name && id.length >= 5) {
+                    if (!students.some(s => s.id === id)) {
+                        students.push({ id, name, grade, classNum });
+                        addedCount++;
+                    }
+                }
+            }
+
+            saveData();
+            showToast(`✅ تم استيراد ${addedCount} طالب بنجاح من ملف الإكسل!`);
+        }
+
+        function updateStats() {
+            let activeScope = document.getElementById('statScopeSelect').value;
+            let targetStudents = students;
+
+            if (activeScope.startsWith('grade_')) {
+                let targetGrade = activeScope.split('_')[1];
+                targetStudents = students.filter(s => s.grade === targetGrade);
+                document.getElementById('masterTitle').innerText = `📊 إحصائية (الصف ${targetGrade})`;
+            } else {
+                document.getElementById('masterTitle').innerText = `📊 الإحصائية العامة (المدرسة بالكامل)`;
+            }
+
+            let total = targetStudents.length;
+            let present = 0;
+            let absent = 0;
+
+            targetStudents.forEach(s => {
+                let status = attendance[s.id] || 'absent';
+                if (status === 'present') present++;
+                else absent++;
+            });
+
+            let percent = total > 0 ? Math.round((present / total) * 100) : 0;
+
+            document.getElementById('mTotal').innerText = total;
+            document.getElementById('mPresent').innerText = present;
+            document.getElementById('mAbsent').innerText = absent;
+            document.getElementById('mPercent').innerText = percent + '%';
+        }
+
+        function changeStatScope() {
+            updateStats();
+            renderClassStats();
+        }
+
+        function renderClassStats() {
+            const container = document.getElementById('classStats');
+            container.innerHTML = '';
+
+            let activeScope = document.getElementById('statScopeSelect').value;
+            let filteredStudents = students;
+            if (activeScope.startsWith('grade_')) {
+                let targetGrade = activeScope.split('_')[1];
+                filteredStudents = students.filter(s => s.grade === targetGrade);
+            }
+
+            for (let i = 1; i <= 7; i++) {
+                let classSts = filteredStudents.filter(s => s.classNum == i);
+                if (classSts.length === 0 && activeScope.startsWith('grade_')) continue;
+
+                let pCount = classSts.filter(s => attendance[s.id] === 'present').length;
+                let aCount = classSts.filter(s => (attendance[s.id] || 'absent') === 'absent').length;
+                let tCount = classSts.length;
+
+                let box = document.createElement('div');
+                box.className = 'class-stat-box';
+                box.innerHTML = `
+                    <h4>الفصل ${i}</h4>
+                    <div class="numbers">
+                        <span class="num present">${pCount}</span>
+                        <span class="num absent">${aCount}</span>
+                        <span class="num total">/ ${tCount}</span>
+                    </div>
+                `;
+                container.appendChild(box);
+            }
+        }
+
+        function renderStudentsList() {
+            const listContainer = document.getElementById('studentsList');
+            listContainer.innerHTML = '';
+
+            const classFilter = document.getElementById('classFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const gradeFilter = document.getElementById('gradeFilter').value;
+
+            let filtered = students.filter(s => {
+                let matchClass = (classFilter === 'all' || s.classNum == classFilter);
+                let status = attendance[s.id] || 'absent';
+                let matchStatus = (statusFilter === 'all' || status === statusFilter);
+                let matchGrade = (gradeFilter === 'all' || s.grade === gradeFilter);
+                return matchClass && matchStatus && matchGrade;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = '<div style="text-align:center; color:#6b7280; padding:20px;">لا توجد طلاب تطابق خيارات الفلترة الحالية.</div>';
+                return;
+            }
+
+            filtered.forEach(s => {
+                let status = attendance[s.id] || 'absent';
+                let item = document.createElement('div');
+                item.className = 'student-item';
+                item.innerHTML = `
+                    <div class="student-info">
+                        <div class="student-name">${s.name}</div>
+                        <div class="student-details">الرقم القومي: ${s.id} | ${s.grade} - فصل ${s.classNum}</div>
+                        <div>
+                            <button class="mini-btn edit-mini" onclick="prepareEditStudent('${s.id}')">✏️ تعديل</button>
+                            <button class="mini-btn delete-mini" onclick="deleteSpecificStudent('${s.id}')">🗑️ حذف</button>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="status-btn status-present ${status === 'present' ? 'active' : ''}" onclick="setStatus('${s.id}', 'present')">حاضر</button>
+                        <button class="status-btn status-absent ${status === 'absent' ? 'active' : ''}" onclick="setStatus('${s.id}', 'absent')">غائب</button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function setStatus(id, status) {
+            attendance[id] = status;
+            saveData();
+        }
+
+        // وظيفة البحث السريع لتسجيل الحضور/الغياب اليدوي
+        function handleQuickSearch(query) {
+            const resDiv = document.getElementById('quickSearchResults');
+            query = query.trim().toLowerCase();
+            if (!query) {
+                resDiv.style.display = 'none';
+                resDiv.innerHTML = '';
+                return;
+            }
+
+            let matches = students.filter(s => s.name.toLowerCase().includes(query) || s.id.includes(query)).slice(0, 5);
+            if (matches.length === 0) {
+                resDiv.style.display = 'block';
+                resDiv.innerHTML = '<div style="padding: 8px; text-align:center; color:#64748b;">لا يوجد نتائج مطابقة</div>';
+                return;
+            }
+
+            let html = '';
+            matches.forEach(s => {
+                let currentStatus = attendance[s.id] || 'absent';
+                let statusText = currentStatus === 'present' ? '✅ حاضر' : '❌ غائب';
+                let nextStatus = currentStatus === 'present' ? 'absent' : 'present';
+                let actionLabel = currentStatus === 'present' ? 'تحويل لـ غائب' : 'تسجيل حضور';
+                let actionClass = currentStatus === 'present' ? 'background:#fee2e2;color:#991b1b;' : 'background:#d1fae5;color:#065f46;';
+
+                html += `
+                    <div class="search-result-item" onclick="quickToggleStatus('${s.id}')">
+                        <div>
+                            <b>${s.name}</b> <span style="font-size:0.75rem; color:#64748b;">(${s.grade} - فصل ${s.classNum})</span><br>
+                            <span style="font-size:0.75rem; color:#475569;">القومي: ${s.id} | الحالة: <b>${statusText}</b></span>
+                        </div>
+                        <button style="padding:4px 8px; border:none; border-radius:5px; font-size:0.75rem; font-weight:bold; cursor:pointer; ${actionClass}">
+                            ${actionLabel}
+                        </button>
+                    </div>
+                `;
+            });
+            resDiv.style.display = 'block';
+            resDiv.innerHTML = html;
+        }
+
+        function quickToggleStatus(id) {
+            let currentStatus = attendance[id] || 'absent';
+            attendance[id] = currentStatus === 'present' ? 'absent' : 'present';
+            saveData();
+            let s = students.find(item => item.id === id);
+            if(s) {
+                showToast(`تم تحديث حالة الطالب (${s.name}) بنجاح`);
+            }
+            document.getElementById('quickSearchInput').value = '';
+            document.getElementById('quickSearchResults').style.display = 'none';
+        }
+
+        function clearAllStudentsDatabase() {
+            if (confirm('⚠️ تحذير خطير: هل تريد مسح جميع الطلاب من قاعدة البيانات نهائياً؟')) {
+                students = [];
+                attendance = {};
+                saveData();
+                showToast('تم مسح جميع الطلاب والقاعدة بنجاح');
+            }
+        }
+
+        function copyAbsentOnly() {
+            let classFilter = document.getElementById('classFilter').value;
+            let gradeFilter = document.getElementById('gradeFilter').value;
+
+            let absentList = students.filter(s => {
+                let matchClass = (classFilter === 'all' || s.classNum == classFilter);
+                let matchGrade = (gradeFilter === 'all' || s.grade === gradeFilter);
+                let status = attendance[s.id] || 'absent';
+                return matchClass && matchGrade && status === 'absent';
+            });
+
+            if (absentList.length === 0) {
+                showToast('لا يوجد طلاب غائبين مطابقين للفلتر الحالي!');
+                return;
+            }
+
+            let text = reportHeader("📋 قائمة الطلاب الغائبين") + "--------------------\n";
+            absentList.forEach((s, index) => {
+                text += `${index + 1}. الاسم: ${s.name} | الرقم القومي: ${s.id} | الصف: ${s.grade} - فصل ${s.classNum}\n`;
+            });
+
+            document.getElementById('absentText').value = text;
+            document.getElementById('absentModal').classList.add('show');
+        }
+
+        function copyAbsentTextArea() {
+            const textarea = document.getElementById('absentText');
+            textarea.select();
+            document.execCommand('copy');
+            showToast('📋 تم نسخ قائمة الغائبين بنجاح!');
+        }
+
+        function addStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const id = document.getElementById('studentNationalId').value.trim();
+            const grade = document.getElementById('studentGrade').value;
+            const classNum = document.getElementById('studentClass').value;
+
+            if (!name) { alert('الرجاء إدخال اسم الطالب.'); return; }
+            if (id.length < 5) { alert('⚠️ خطأ: الرقم القومي أو الكود قصير جداً.'); return; }
+            if (students.some(s => s.id === id)) { alert('هذا الرقم القومي مسجل مسبقاً!'); return; }
+
+            students.push({ id, name, grade, classNum });
+            saveData();
+            clearStudentForm();
+            showToast('✅ تمت إضافة الطالب بنجاح');
+        }
+
+        function prepareEditStudent(id) {
+            const s = students.find(item => item.id === id);
+            if (!s) return;
+            document.getElementById('studentName').value = s.name;
+            document.getElementById('studentNationalId').value = s.id;
+            document.getElementById('studentNationalId').disabled = true;
+            document.getElementById('studentGrade').value = s.grade;
+            document.getElementById('studentClass').value = s.classNum;
+            selectedStudentIdForEdit = id;
+            document.getElementById('selectedStudentMsg').innerHTML = `جاري تعديل بيانات: <b>${s.name}</b>`;
+        }
+
+        function updateStudent() {
+            if (!selectedStudentIdForEdit) { alert('اختر طالباً للتعديل أولاً.'); return; }
+            const name = document.getElementById('studentName').value.trim();
+            const grade = document.getElementById('studentGrade').value;
+            const classNum = document.getElementById('studentClass').value;
+
+            if (!name) { alert('الرجاء إدخال اسم الطالب.'); return; }
+
+            let s = students.find(item => item.id === selectedStudentIdForEdit);
+            if (s) {
+                s.name = name;
+                s.grade = grade;
+                s.classNum = classNum;
+                saveData();
+                clearStudentForm();
+                showToast('✏️ تم التعديل بنجاح');
+            }
+        }
+
+        function deleteSpecificStudent(id) {
+            if (confirm('هل أنت متأكد من حذف هذا الطالب نهائياً؟')) {
+                students = students.filter(s => s.id !== id);
+                delete attendance[id];
+                saveData();
+                showToast('🗑️ تم حذف الطالب بنجاح');
+            }
+        }
+
+        function deleteSelectedStudent() {
+            if (selectedStudentIdForEdit) {
+                deleteSpecificStudent(selectedStudentIdForEdit);
+                clearStudentForm();
+            } else { alert('اختر طالباً أولاً.'); }
+        }
+
+        function clearStudentForm() {
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentNationalId').value = '';
+            document.getElementById('studentNationalId').disabled = false;
+            selectedStudentIdForEdit = null;
+            document.getElementById('selectedStudentMsg').innerHTML = 'يمكنك الضغط على «تعديل» أو «حذف» بجوار أي طالب.';
+        }
+
+        function exportBackup() {
+            const data = { students, attendance, schoolSettings };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_school.json`;
+            a.click();
+            showToast('⬇️ تم تصدير النسخة الاحتياطية');
+        }
+
+        function importBackup(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed.students && Array.isArray(parsed.students)) {
+                        students = parsed.students;
+                        attendance = parsed.attendance || {};
+                        if (parsed.schoolSettings && typeof parsed.schoolSettings === 'object') {
+                            schoolSettings = Object.assign(schoolSettings, parsed.schoolSettings);
+                            localStorage.setItem('school_report_settings', JSON.stringify(schoolSettings));
+                            loadSchoolSettings();
+                        }
+                        saveData();
+                        showToast('✅ تم استيراد النسخة الاحتياطية بنجاح');
+                    } else { alert('ملف غير صالح.'); }
+                } catch (err) { alert('خطأ في قراءة الملف.'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function endSession() {
+            document.getElementById('sessionEndedMsg').classList.add('show');
+            showToast('✅ تم إنهاء الجلسة');
+        }
+
+        function resetForNewDay() {
+            if (confirm('🔄 هل تريد بدء يوم غياب جديد وتصفير الحضور؟')) {
+                attendance = {};
+                document.getElementById('sessionEndedMsg').classList.remove('show');
+                saveData();
+                showToast('🔄 جاهز ليوم جديد بنجاح');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function showExportTable() {
+            if (students.length === 0) { showToast('لا توجد بيانات!'); return; }
+            let html = `<table class="export-table"><tr><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;
+            students.forEach(s => {
+                let stat = attendance[s.id] === 'present' ? 'حاضر' : 'غائب';
+                let cls = stat === 'حاضر' ? 'export-present' : 'export-absent';
+                html += `<tr class="${cls}"><td>${s.name}</td><td>${s.id}</td><td>${s.grade}</td><td>${s.classNum}</td><td><b>${stat}</b></td></tr>`;
+            });
+            html += `</table>`;
+            document.getElementById('exportTableContainer').innerHTML = html;
+            document.getElementById('exportModal').classList.add('show');
+        }
+
+        function closeExport() { document.getElementById('exportModal').classList.remove('show'); }
+        
+        function copyForExcel() {
+            if (students.length === 0) { showToast('لا توجد بيانات!'); return; }
+            let text = reportHeader("📋 تقرير الطلاب اليومي") + "\n";
+            text += "الاسم\tالرقم القومي\tالصف\tالفصل\tالحالة\n";
+            students.forEach(s => {
+                let stat = (attendance[s.id] === 'present') ? 'حاضر' : 'غائب';
+                text += `${s.name}\t${s.id}\t${s.grade}\t${s.classNum}\t${stat}\n`;
+            });
+            document.getElementById('excelText').value = text;
+            document.getElementById('copyModal').classList.add('show');
+        }
+        
+        function copyTextArea() {
+            document.getElementById('excelText').select();
+            document.execCommand('copy');
+            showToast('📋 تم النسخ!');
+        }
+        
+        function closeCopyModal() { document.getElementById('copyModal').classList.remove('show'); }
+
+        // تصدير تقرير إكسل شامل لكل فصل على حدة في شيتات متعددة (Sheets) داخل ملف واحد
+        function exportDailyExcel() {
+            if (students.length === 0) {
+                showToast('⚠️ لا توجد بيانات طلاب للتصدير!');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+            const total = students.length;
+            const present = students.filter(s => attendance[s.id] === 'present').length;
+            const absent = total - present;
+            const percent = total ? Math.round((present / total) * 100) : 0;
+
+            const rows = [
+                [schoolSettings.schoolName || 'اسم المدرسة'],
+                ...(schoolSettings.educationAdmin ? [[`الإدارة التعليمية: ${schoolSettings.educationAdmin}`]] : []),
+                ...(schoolSettings.schoolStage ? [[`المرحلة التعليمية: ${schoolSettings.schoolStage}`]] : []),
+                ...(schoolSettings.schoolYear ? [[`العام الدراسي: ${schoolSettings.schoolYear}`]] : []),
+                [`تقرير الغياب اليومي الشامل — ${arabicReportDate()}`],
+                [],
+                ['الإحصائية العامة للمدرسة'],
+                ['البيان','العدد','النسبة'],
+                ['إجمالي الطلاب', total, '100%'],
+                ['الحاضرون', present, percent + '%'],
+                ['الغائبون', absent, (100 - percent) + '%'],
+                [],
+                ['إحصائية الصفوف'],
+                ['الصف','إجمالي الطلاب','الحاضرون','الغائبون','نسبة الحضور']
+            ];
+
+            ['الأول','الثانى','الثالث'].forEach(g => {
+                const a = students.filter(s => s.grade === g);
+                const p = a.filter(s => attendance[s.id] === 'present').length;
+                rows.push([`الصف ${g}`, a.length, p, a.length - p, (a.length ? Math.round(p/a.length*100) : 0) + '%']);
+            });
+
+            rows.push([], ['إحصائية الفصول'], ['الفصل','إجمالي الطلاب','الحاضرون','الغائبون','نسبة الحضور']);
+            for (let i = 1; i <= 7; i++) {
+                const a = students.filter(s => s.classNum == i);
+                if (!a.length) continue;
+                const p = a.filter(s => attendance[s.id] === 'present').length;
+                rows.push([`الفصل ${i}`, a.length, p, a.length-p, Math.round(p/a.length*100) + '%']);
+            }
+
+            rows.push([], ['كشف الطلاب بالكامل'], ['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة']);
+            students.forEach((s,i) => {
+                rows.push([i+1, s.name, String(s.id), s.grade, s.classNum,
+                    attendance[s.id] === 'present' ? 'حاضر' : 'غائب']);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!dir'] = 'rtl';
+            ws['!cols'] = [{wch:6},{wch:34},{wch:20},{wch:14},{wch:10},{wch:14}];
+            XLSX.utils.book_append_sheet(wb, ws, 'التقرير الشامل');
+
+            for (let i = 1; i <= 7; i++) {
+                const a = students.filter(s => s.classNum == i);
+                if (!a.length) continue;
+                const p = a.filter(s => attendance[s.id] === 'present').length;
+
+                const d = [
+                    [schoolSettings.schoolName || 'اسم المدرسة'],
+                    [`كشف حضور وغياب الفصل ${i}`],
+                    [`التاريخ: ${arabicReportDate()}`],
+                    [`إجمالي الطلاب: ${a.length} | الحاضرون: ${p} | الغائبون: ${a.length-p} | نسبة الحضور: ${Math.round(p/a.length*100)}%`],
+                    [],
+                    ['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة']
+                ];
+
+                a.forEach((s,j) => d.push([
+                    j+1, s.name, String(s.id), s.grade, s.classNum,
+                    attendance[s.id] === 'present' ? 'حاضر' : 'غائب'
+                ]));
+
+                const w = XLSX.utils.aoa_to_sheet(d);
+                w['!dir'] = 'rtl';
+                w['!cols'] = [{wch:6},{wch:34},{wch:20},{wch:14},{wch:10},{wch:14}];
+                XLSX.utils.book_append_sheet(wb, w, `الفصل ${i}`);
+            }
+
+            const date = document.getElementById('datePicker').value || 'اليومي';
+            XLSX.writeFile(wb, `تقرير_الغياب_${schoolSettings.schoolName || 'المدرسة'}_${date}.xlsx`);
+
+            let wa = reportHeader('📊 التقرير الشامل');
+            wa += `إجمالي الطلاب: ${total}\nالحاضرون: ${present}\nالغائبون: ${absent}\nنسبة الحضور: ${percent}%\n\n📚 إحصائية الفصول:\n`;
+            for (let i=1;i<=7;i++) {
+                const a=students.filter(s=>s.classNum==i);
+                if(!a.length) continue;
+                const p=a.filter(s=>attendance[s.id]==='present').length;
+                wa += `الفصل ${i}: إجمالي ${a.length} | حاضر ${p} | غائب ${a.length-p} | نسبة الحضور ${Math.round(p/a.length*100)}%\n`;
+            }
+
+            showToast('📊 تم تصدير تقرير Excel العربي وسيتم فتح واتساب بالملخص');
+            setTimeout(() => whatsappReport(wa), 600);
+        }
+
+        // تصدير تقرير PDF يومي شامل وفصول منفصلة
+        function exportDailyPDF() {
+            if (students.length === 0) {
+                showToast('⚠️ لا توجد بيانات للطباعة!');
+                return;
+            }
+
+            const total = students.length;
+            const present = students.filter(s => attendance[s.id] === 'present').length;
+            const absent = total - present;
+            const percent = total ? Math.round(present/total*100) : 0;
+
+            let h = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+            <title>تقرير الغياب اليومي</title>
+            <style>
+            @page{size:A4;margin:12mm}
+            body{font-family:Tahoma,"Segoe UI",Arial,sans-serif;direction:rtl;color:#111}
+            h1,h2{text-align:center;margin:7px 0}
+            .meta{text-align:center;line-height:1.8;margin-bottom:10px}
+            table{width:100%;border-collapse:collapse;margin:10px 0 18px;font-size:11px}
+            th,td{border:1px solid #777;padding:5px;text-align:right}
+            th{background:#e5e7eb}
+            .summary td{text-align:center;font-weight:bold}
+            .break{page-break-before:always}
+            </style></head><body>`;
+
+            h += `<h1>${escapeReportHtml(schoolSettings.schoolName || 'اسم المدرسة')}</h1>`;
+            h += `<h2>📑 تقرير الغياب اليومي الشامل</h2>`;
+            h += `<div class="meta">التاريخ: ${escapeReportHtml(arabicReportDate())}`;
+            if (schoolSettings.educationAdmin) h += `<br>الإدارة التعليمية: ${escapeReportHtml(schoolSettings.educationAdmin)}`;
+            if (schoolSettings.schoolStage) h += `<br>المرحلة التعليمية: ${escapeReportHtml(schoolSettings.schoolStage)}`;
+            if (schoolSettings.schoolYear) h += `<br>العام الدراسي: ${escapeReportHtml(schoolSettings.schoolYear)}`;
+            h += `</div>`;
+
+            h += `<h2>الإحصائية العامة للمدرسة</h2>
+            <table class="summary"><tr><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>
+            <tr><td>${total}</td><td>${present}</td><td>${absent}</td><td>${percent}%</td></tr></table>`;
+
+            h += `<h2>إحصائية الصفوف</h2><table>
+            <tr><th>الصف</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
+            ['الأول','الثانى','الثالث'].forEach(g => {
+                const a=students.filter(s=>s.grade===g), p=a.filter(s=>attendance[s.id]==='present').length;
+                h += `<tr><td>الصف ${escapeReportHtml(g)}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${a.length?Math.round(p/a.length*100):0}%</td></tr>`;
+            });
+            h += `</table>`;
+
+            h += `<h2>إحصائية الفصول</h2><table>
+            <tr><th>الفصل</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
+            for(let i=1;i<=7;i++){
+                const a=students.filter(s=>s.classNum==i);
+                if(!a.length) continue;
+                const p=a.filter(s=>attendance[s.id]==='present').length;
+                h += `<tr><td>الفصل ${i}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${Math.round(p/a.length*100)}%</td></tr>`;
+            }
+            h += `</table>`;
+
+            h += `<h2 class="break">كشف الطلاب الغائبين</h2><table>
+            <tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th></tr>`;
+            students.filter(s=>attendance[s.id]!=='present').forEach((s,i)=>{
+                h += `<tr><td>${i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${s.classNum}</td></tr>`;
+            });
+            h += `</table>`;
+
+            h += `<h2 class="break">كشف الطلاب بالكامل</h2><table>
+            <tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;
+            students.forEach((s,i)=>{
+                h += `<tr><td>${i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${s.classNum}</td><td>${attendance[s.id]==='present'?'حاضر':'غائب'}</td></tr>`;
+            });
+            h += `</table><scr` + `ipt>window.onload=function(){window.print();};<` + `/script></body></html>`;
+
+            const win = window.open('', '_blank');
+            if (!win) {
+                showToast('⚠️ المتصفح منع نافذة التقرير. اسمح بالنوافذ المنبثقة.');
+                return;
+            }
+            win.document.write(h);
+            win.document.close();
+
+            let wa = reportHeader('📑 التقرير اليومي');
+            wa += `إجمالي الطلاب: ${total}\nالحاضرون: ${present}\nالغائبون: ${absent}\nنسبة الحضور: ${percent}%\n\n📚 إحصائية الفصول:\n`;
+            for(let i=1;i<=7;i++){
+                const a=students.filter(s=>s.classNum==i);
+                if(!a.length) continue;
+                const p=a.filter(s=>attendance[s.id]==='present').length;
+                wa += `الفصل ${i}: إجمالي ${a.length} | حاضر ${p} | غائب ${a.length-p} | نسبة الحضور ${Math.round(p/a.length*100)}%\n`;
+            }
+            setTimeout(() => whatsappReport(wa), 800);
+            showToast('📑 تم فتح التقرير العربي للطباعة وسيتم فتح واتساب بالملخص');
+        }
+
+        function escapeReportHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
+
+        function toggleCamera() {
+            const readerDiv = document.getElementById('reader');
+            const btn = document.getElementById('camToggleBtn');
+
+            if (!isCameraRunning) {
+                readerDiv.classList.add('active');
+                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        let cleanText = decodedText.trim();
+                        let now = Date.now();
+
+                        if (cleanText === lastScannedId && (now - lastScanTime < 2000)) {
+                            return;
+                        }
+                        lastScannedId = cleanText;
+                        lastScanTime = now;
+
+                        let student = students.find(s => s.id === cleanText || s.name === cleanText || cleanText.includes(s.id));
+
+                        if (student) {
+                            let already = attendance[student.id] === 'present';
+                            attendance[student.id] = 'present';
+                            saveData();
+
+                            const resBox = document.getElementById('scanResult');
+                            resBox.className = 'scan-result show ' + (already ? 'already' : '');
+                            document.getElementById('resName').innerText = student.name;
+                            document.getElementById('resId').innerText = student.id;
+                            document.getElementById('resClass').innerText = `${student.grade} - فصل ${student.classNum}`;
+                            document.getElementById('scanBadge').className = already ? 'already-badge' : 'success-badge';
+                            document.getElementById('scanBadge').innerText = already ? 'مسجل مسبقاً (حاضر بالفعل)' : 'تم تسجيل الحضور بنجاح';
+                        } else {
+                            showToast(`⚠️ الكود (${cleanText}) غير موجود بقاعدة البيانات!`);
+                        }
+                    },
+                    (err) => {}
+                ).then(() => {
+                    isCameraRunning = true;
+                    btn.innerText = "🛑 إيقاف الكاميرا";
+                    btn.className = "btn btn-danger";
+                }).catch(err => {
+                    alert("تعذر تشغيل الكاميرا.");
+                    readerDiv.classList.remove('active');
+                });
+            } else {
+                if (html5QrCode) {
+                    html5QrCode.stop().then(() => {
+                        readerDiv.classList.remove('active');
+                        isCameraRunning = false;
+                        btn.innerText = "📷 تشغيل الكاميرا";
+                        btn.className = "btn btn-primary";
+                    }).catch(err => { console.log(err); });
+                }
+            }
+        }
+
+        document.getElementById('classFilter').addEventListener('change', renderStudentsList);
+        document.getElementById('statusFilter').addEventListener('change', renderStudentsList);
+        document.getElementById('gradeFilter').addEventListener('change', renderStudentsList);
+
+        loadSchoolSettings();
+        loadData();
+        saveData();
+    </script>
+</body>
+</html>
