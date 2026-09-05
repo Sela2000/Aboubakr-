@@ -9,6 +9,7 @@
     <!-- مكتبة توليد ملفات الـ PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -123,15 +124,64 @@
             .student-item > div:last-child { width: 100%; } 
             .status-btn { padding: 7px 10px; } 
         }
+
+        #loginOverlay{position:fixed;inset:0;background:linear-gradient(135deg,#667eea,#764ba2);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+        #loginBox{background:#fff;width:100%;max-width:420px;border-radius:20px;padding:25px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
+        #loginBox h2{margin-bottom:8px;color:#1f2937}
+        #loginBox p{color:#64748b;margin-bottom:18px;font-size:.9rem}
+        #loginBox input,#loginBox select{width:100%;padding:13px;border:2px solid #e5e7eb;border-radius:10px;margin-bottom:10px;font-size:1rem;direction:rtl;text-align:right;background:#fff}
+        #loginBox select{cursor:pointer}
+        #loginRoleHint{font-size:.78rem;color:#64748b;background:#f8fafc;border-radius:8px;padding:8px;margin:-2px 0 10px;text-align:right}
+        #loginError{display:none;background:#fee2e2;color:#991b1b;border-radius:10px;padding:10px;margin-bottom:10px;font-size:.85rem}
+        #appHeaderBar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:8px;font-size:.8rem}
+        #logoutBtn{border:0;background:#ef4444;color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:bold}
+    
+        .reports-box{margin-top:18px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:14px;padding:16px}
+        .reports-box h3{margin:0 0 12px;text-align:center}
+        .report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+        .report-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+        .report-card h4{margin:0 0 10px;color:#0f172a}
+        .report-card input,.report-card select{width:100%;box-sizing:border-box;margin:4px 0;padding:9px;border:1px solid #cbd5e1;border-radius:8px}
+        .report-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+        .report-result{margin-top:14px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:12px;overflow:auto}
+        .report-result table{width:100%;border-collapse:collapse;font-size:.88rem}
+        .report-result th,.report-result td{border:1px solid #cbd5e1;padding:6px;text-align:center}
+        .report-result th{background:#e2e8f0}
+        .report-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
+        .report-stat{background:#f1f5f9;border-radius:10px;padding:8px 14px;font-weight:bold}
+        .report-note{text-align:center;color:#64748b;font-size:.8rem;margin-top:8px}
+        @media(max-width:600px){.report-grid{grid-template-columns:1fr}.report-actions .btn{flex:1 1 45%}}
+
+        .session-box{margin:12px 0;padding:14px;border:2px solid #c7d2fe;border-radius:14px;background:#f8fafc;text-align:center}.session-state{font-weight:bold;margin-bottom:8px}.session-buttons{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.session-buttons .btn{min-width:180px}.session-closed-note{color:#b91c1c;font-weight:bold}.session-open-note{color:#047857;font-weight:bold}
     </style>
 </head>
 <body>
-    <div class="container">
+    <div id="loginOverlay">
+      <div id="loginBox">
+        <div style="font-size:3rem">🏫</div>
+        <h2>نظام تسجيل الغياب</h2>
+        <p>اختر نوع الدخول ثم أدخل بيانات الحساب</p>
+        <div id="loginError"></div>
+        <select id="loginRole" onchange="updateLoginRoleHint()">
+          <option value="school_admin">👑 مدير المدرسة</option>
+          <option value="absence_officer">📝 مسؤول الغياب</option>
+          <option value="student_affairs">👥 شؤون الطلبة</option>
+        </select>
+        <div id="loginRoleHint">صلاحيات كاملة داخل المدرسة وإدارة الطلاب والموظفين.</div>
+        <input id="loginUsername" type="text" autocomplete="username" placeholder="اسم المستخدم">
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+        <button id="loginBtn" class="btn btn-primary" style="width:100%;margin-top:5px" onclick="loginSchool()">🔐 دخول</button>
+        <div style="margin-top:12px;color:#94a3b8;font-size:.75rem">بياناتك محفوظة بشكل منفصل عن باقي المدارس</div>
+      </div>
+    </div>
+
+    <div class="container" id="appContainer">
+        <div id="appHeaderBar"><span>🏫 <b id="loggedSchoolName">—</b> <small id="loggedUserRole" style="margin-right:10px;opacity:.9"></small></span><button id="logoutBtn" onclick="logoutSchool()">خروج</button></div>
         <h1>📱 نظام تسجيل الغياب</h1>
         <p class="subtitle">امسح الباركود بالكاميرا أو ارفع ملف إكسل</p>
 
         <div style="text-align:center;">
-            <span class="offline-badge">✅ يشتغل بدون نت 100%</span>
+            <span class="offline-badge">☁️ متصل بقاعدة البيانات الآمنة</span>
         </div>
 
         <div class="hint">
@@ -151,13 +201,59 @@
             ✅ تم إنهاء الجلسة! كل اللي ما تمش مسحهم اتسجلوا غياب.
         </div>
 
-        <div class="manage-box" style="background:#eef2ff;border-color:#c7d2fe;">
+        <div class="manage-box" id="staffManagementBox" style="background:#fff7ed;border-color:#fed7aa;display:none;">
+            <h3>👥 إدارة حسابات الموظفين</h3>
+            <div style="text-align:center;color:#475569;font-size:.85rem;margin-bottom:12px;line-height:1.7;">
+                من هنا ينشئ مدير المدرسة حسابات مسؤولي الغياب وشؤون الطلبة ويحدد لهم الصف والفصل عند الحاجة.
+            </div>
+            <div class="manage-grid">
+                <input id="staffDisplayName" type="text" placeholder="اسم الموظف">
+                <input id="staffUsername" type="text" placeholder="اسم المستخدم">
+                <input id="staffPassword" type="password" placeholder="كلمة المرور">
+                <select id="staffRole">
+                    <option value="absence_officer">📝 مسؤول الغياب</option>
+                    <option value="student_affairs">👥 شؤون الطلبة</option>
+                </select>
+                <input id="staffAssignedGrade" type="text" placeholder="الصف (اختياري لمسؤول الغياب)">
+                <input id="staffAssignedClass" type="text" placeholder="الفصل (اختياري لمسؤول الغياب)">
+            </div>
+            <div class="manage-buttons">
+                <button class="btn btn-success" onclick="createStaffAccount()">➕ إنشاء حساب الموظف</button>
+                <button class="btn btn-info" onclick="loadSchoolStaff()">🔄 تحديث القائمة</button>
+            </div>
+            <div id="staffManagementStatus" style="text-align:center;color:#64748b;font-size:.82rem;margin-top:8px;"></div>
+            <div id="staffManagementList" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="manage-box" id="staffAssignmentBox" style="background:#f0fdf4;border-color:#bbf7d0;display:none;">
+            <h3>👥 تحديد مسؤولي المدرسة</h3>
+            <div style="text-align:center;color:#475569;font-size:.85rem;margin-bottom:12px;line-height:1.7;">
+                يحدد مدير المدرسة الحساب الذي سيعمل كمسؤول غياب والحساب الذي سيعمل كمسؤول شؤون طلبة داخل هذه المدرسة.
+            </div>
+            <div class="manage-grid">
+                <select id="absenceOfficerSelect">
+                    <option value="">📝 اختر مسؤول الغياب</option>
+                </select>
+                <select id="studentAffairsSelect">
+                    <option value="">👥 اختر مسؤول شؤون الطلبة</option>
+                </select>
+            </div>
+            <div class="manage-buttons">
+                <button class="btn btn-success" onclick="saveStaffAssignments()">💾 حفظ تعيين المسؤولين</button>
+                <button class="btn btn-info" onclick="loadSchoolStaff()">🔄 تحديث قائمة الموظفين</button>
+            </div>
+            <div id="staffAssignmentStatus" style="text-align:center;color:#64748b;font-size:.82rem;margin-top:8px;"></div>
+        </div>
+
+        <div class="manage-box" id="schoolSettingsBox" style="background:#eef2ff;border-color:#c7d2fe;">
             <h3>🏫 بيانات المدرسة للتقارير</h3>
             <div class="manage-grid">
                 <input id="schoolName" type="text" value="أبو بكر الصديق ع ب" placeholder="اسم المدرسة">
                 <input id="educationAdmin" type="text" placeholder="الإدارة التعليمية">
                 <input id="schoolStage" type="text" placeholder="المرحلة التعليمية">
                 <input id="schoolYear" type="text" placeholder="العام الدراسي">
+                <input id="schoolManager" type="text" placeholder="اسم مدير المدرسة">
+                <input id="studentAffairsOfficer" type="text" placeholder="مسؤول شئون الطلبة">
             </div>
             <div class="manage-buttons">
                 <button class="btn btn-primary" onclick="saveSchoolSettings()">💾 حفظ بيانات المدرسة</button>
@@ -165,6 +261,16 @@
         </div>
 
         <input type="date" id="datePicker" class="date-picker">
+
+        <div class="session-box" id="attendanceSessionBox">
+            <div class="session-state" id="attendanceSessionStatus">📅 حالة جلسة الحضور: جاري التحميل...</div>
+            <div class="session-buttons">
+                <button class="btn btn-primary" id="openSessionBtn" onclick="openAttendanceSession()">▶️ فتح يوم حضور جديد</button>
+                <button class="btn btn-warning" id="closeSessionBtn" onclick="endSession()">🔒 إنهاء وإغلاق اليوم</button>
+                <button class="btn btn-info" id="reopenSessionBtn" onclick="reopenAttendanceSession()" style="display:none">🔓 إعادة فتح اليوم</button>
+            </div>
+            <div id="attendanceSessionHint" style="margin-top:8px;font-size:.84rem;color:#64748b"></div>
+        </div>
 
         <!-- الإحصائية العامة -->
         <div class="master-stats-card">
@@ -241,7 +347,7 @@
             <option value="الثالث">الصف الثالث</option>
         </select>
 
-        <div class="manage-box">
+        <div class="manage-box" id="studentImportBox">
             <h3>📂 استيراد الطلاب من ملف Excel</h3>
             <div class="manage-buttons" style="justify-content: center;">
                 <button class="btn btn-success" onclick="document.getElementById('excelFile').click()">📊 اختر ملف Excel واستيراد</button>
@@ -249,7 +355,7 @@
             <input id="excelFile" type="file" accept=".xlsx, .xls, .csv" style="display:none" onchange="importExcelFile(this)">
         </div>
 
-        <div class="manage-box">
+        <div class="manage-box" id="studentManageBox">
             <h3>👨‍🎓 إضافة طالب يدوي</h3>
             <div class="manage-grid">
                 <input id="studentName" type="text" placeholder="اسم الطالب">
@@ -289,8 +395,65 @@
             <input id="backupFile" type="file" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
         </div>
 
+        <div id="rolePermissionNote" style="text-align:center;margin:10px 0;padding:10px;border-radius:10px;background:#f1f5f9;color:#334155;font-weight:bold;font-size:.9rem;"></div>
         <div class="section-title">قائمة الطلاب</div>
         <div id="studentsList" class="students-list"></div>
+
+        <div class="manage-box" id="reportTestBox" style="background:#fff7ed;border-color:#fed7aa;">
+            <h3>🧪 اختبار التقارير التاريخية</h3>
+            <div style="text-align:center;color:#9a3412;font-size:.85rem;line-height:1.7;margin-bottom:10px;">
+                ينشئ بيانات اختبار منفصلة لآخر 30 يومًا حتى نختبر الأسبوعي والشهري وعدد أيام الغياب بدون انتظار.
+            </div>
+            <div class="manage-buttons">
+                <button class="btn btn-warning" onclick="createReportTestData()">🧪 إنشاء بيانات اختبار</button>
+                <button class="btn btn-danger" onclick="deleteReportTestData()">🗑️ حذف بيانات الاختبار فقط</button>
+            </div>
+            <div id="testDataStatus" class="backup-status"></div>
+        </div>
+
+
+        <div class="reports-box" id="reportsBox">
+            <h3>📊 الاستعلامات والتقارير</h3>
+            <div class="report-grid">
+                <div class="report-card">
+                    <h4>🔎 استعلام عن غياب طالب</h4>
+                    <input id="studentReportSearch" placeholder="الاسم أو الرقم القومي أو كود الطالب">
+                    <label>من تاريخ</label><input type="date" id="studentReportStart">
+                    <label>إلى تاريخ</label><input type="date" id="studentReportEnd">
+                    <button class="btn btn-primary" onclick="runStudentAbsenceReport()">🔎 بحث</button>
+                </div>
+                <div class="report-card">
+                    <h4>📅 التقرير اليومي</h4>
+                    <label>التاريخ</label><input type="date" id="dailyReportDate">
+                    <button class="btn btn-primary" onclick="runDailyReport()">📅 عرض التقرير</button>
+                </div>
+                <div class="report-card">
+                    <h4>📆 التقرير الأسبوعي</h4>
+                    <label>بداية الأسبوع</label><input type="date" id="weeklyReportStart">
+                    <button class="btn btn-primary" onclick="runWeeklyReport()">📆 عرض الأسبوع</button>
+                </div>
+                <div class="report-card">
+                    <h4>🗓️ التقرير الشهري</h4>
+                    <label>الشهر</label><input type="month" id="monthlyReportMonth">
+                    <button class="btn btn-primary" onclick="runMonthlyReport()">🗓️ عرض الشهر</button>
+                </div>
+                <div class="report-card">
+                    <h4>🔢 غياب عدد أيام فأكثر</h4>
+                    <input type="number" min="1" id="minAbsentDays" value="3" placeholder="عدد أيام الغياب">
+                    <label>من تاريخ</label><input type="date" id="minAbsentStart">
+                    <label>إلى تاريخ</label><input type="date" id="minAbsentEnd">
+                    <button class="btn btn-primary" onclick="runMinAbsenceReport()">🔢 استخراج القائمة</button>
+                </div>
+            </div>
+            <div class="report-note">التقارير تقرأ كل سجلات المدرسة من قاعدة البيانات، لذلك تجمع بيانات جميع الموظفين/الفرق معًا.</div>
+            <div id="reportResult" class="report-result" style="display:none"></div>
+            <div id="reportActions" class="report-actions" style="display:none;justify-content:center">
+                <button class="btn btn-warning" onclick="printCurrentReport()">🖨️ طباعة</button>
+                <button class="btn btn-danger" onclick="pdfCurrentReport()">📑 PDF</button>
+                <button class="btn btn-success" onclick="excelCurrentReport()">📊 Excel</button>
+                <button class="btn btn-success" onclick="whatsappCurrentReport()">📱 واتساب</button>
+            </div>
+        </div>
 
         <div class="section-title">📊 التقارير والتصدير (يومي / فصول)</div>
         <div class="btn-group">
@@ -335,6 +498,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
 
     <script>
@@ -349,31 +513,388 @@
         document.getElementById('datePicker').valueAsDate = new Date();
 
 
-        // ===== إعدادات التقارير فقط =====
-        let schoolSettings = {
-            schoolName: 'أبو بكر الصديق ع ب',
-            educationAdmin: '',
-            schoolStage: '',
-            schoolYear: ''
-        };
+        // ===== إعدادات النظام السحابي =====
+        const SUPABASE_URL = 'https://pqwwfkccenoxfszorysg.supabase.co';
+        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_kjPskCdIBO0PeFi73_Lfcw_oBlj-NrC';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+        let currentUser = null;
+        let currentSchool = null;
+        let currentMembership = null;
+        let currentRole = "school_user";
+        let currentAssignedGrade = "";
+        let currentAssignedClass = "";
+        function isSchoolAdmin(){ return currentRole === "school_admin" || currentRole === "platform_admin"; }
+        function isAbsenceOfficer(){ return currentRole === "absence_officer"; }
+        function isStudentAffairs(){ return currentRole === "student_affairs"; }
+        function isEmployee(){ return !isSchoolAdmin(); }
+        function roleLabel(role){
+            if(role === "school_admin" || role === "platform_admin") return "👑 مدير المدرسة";
+            if(role === "absence_officer") return "📝 مسؤول الغياب";
+            if(role === "student_affairs") return "👥 شؤون الطلبة";
+            return "👤 موظف";
+        }
+        function loginRoleLabel(role){
+            if(role === "school_admin") return "مدير المدرسة";
+            if(role === "absence_officer") return "مسؤول الغياب";
+            if(role === "student_affairs") return "شؤون الطلبة";
+            return "موظف";
+        }
+        function updateLoginRoleHint(){
+            const role=document.getElementById('loginRole')?.value;
+            const hint=document.getElementById('loginRoleHint');
+            if(!hint) return;
+            const hints={
+              school_admin:'صلاحيات كاملة داخل المدرسة وإدارة الطلاب والموظفين والتقارير.',
+              absence_officer:'تسجيل الحضور والغياب وQR والتقارير المسموح بها، بدون إدارة الطلاب.',
+              student_affairs:'شؤون الطلبة والبحث والتقارير، بدون إضافة أو حذف أو استيراد الطلاب.'
+            };
+            hint.innerText=hints[role]||'';
+        }
+        function applyRoleUI(){
+            const admin = isSchoolAdmin();
+            const absence = isAbsenceOfficer();
+            const affairs = isStudentAffairs();
+            const roleEl=document.getElementById("loggedUserRole");
+            if(roleEl) roleEl.innerText = roleLabel(currentRole);
+            ["schoolSettingsBox","studentImportBox","studentManageBox","staffAssignmentBox","staffManagementBox","reportTestBox"].forEach(id=>{const el=document.getElementById(id); if(el) el.style.display=admin?"block":"none";});
+            const excelInput=document.getElementById('excelFile'); if(excelInput) excelInput.disabled=!admin;
+            const backupInput=document.getElementById('backupFile'); if(backupInput) backupInput.disabled=!admin;
+            if(admin && currentSchool) loadSchoolStaff();
+            const backup=document.querySelector(".backup-box"); if(backup) backup.style.display=admin?"block":"none";
+            const test=document.getElementById("reportTestBox"); if(test) test.style.display=admin?"block":"none";
+            const roleNote=document.getElementById("rolePermissionNote");
+            if(roleNote){
+                if(admin) roleNote.innerHTML="👑 مدير المدرسة — صلاحيات كاملة داخل المدرسة.";
+                else if(absence) roleNote.innerHTML=`📝 مسؤول الغياب — النطاق المخصص: ${currentAssignedGrade||"كل الصفوف"}${currentAssignedClass?" / فصل "+currentAssignedClass:""}.<br>🚫 ممنوع إضافة أو تعديل أو حذف أو استيراد الطلاب.`;
+                else if(affairs) roleNote.innerHTML="👥 شؤون الطلبة — صلاحيات شؤون الطلبة والبحث والتقارير.<br>🚫 ممنوع إضافة أو حذف أو استيراد الطلاب.";
+                else roleNote.innerHTML="👤 موظف — صلاحيات محدودة.";
+            }
+            const gradeFilter=document.getElementById('gradeFilter');
+            const classFilter=document.getElementById('classFilter');
+            if(absence){
+                if(gradeFilter){ gradeFilter.value=currentAssignedGrade||'all'; gradeFilter.disabled=!!currentAssignedGrade; }
+                if(classFilter){ classFilter.value=currentAssignedClass||'all'; classFilter.disabled=!!currentAssignedClass; }
+            }else{
+                if(gradeFilter) gradeFilter.disabled=false;
+                if(classFilter) classFilter.disabled=false;
+            }
+            // شؤون الطلبة لا تسجل الحضور؛ نترك البحث والتقارير متاحين.
+            const attendanceSection=document.getElementById('attendanceSection');
+            if(attendanceSection) attendanceSection.style.display=affairs?'none':'block';
+            if(typeof renderStudentsList==='function') renderStudentsList();
+        }
+        function employeeCanAccessStudent(s){
+            if(isSchoolAdmin()) return true;
+            const gradeOk=!currentAssignedGrade || String(s.grade||'').trim()===String(currentAssignedGrade).trim();
+            const classOk=!currentAssignedClass || String(s.classNum||'').trim()===String(currentAssignedClass).trim();
+            return gradeOk && classOk;
+        }
+        function getVisibleStudents(){ return isSchoolAdmin() ? students : students.filter(employeeCanAccessStudent); }
+        let schoolSettings = {schoolName:'',educationAdmin:'',schoolStage:'',schoolYear:'',schoolManager:'',studentAffairsOfficer:'',attendanceSession:{openDate:'',closedDates:[]}};
+        let cloudAttendanceLoadedForDate = '';
 
-        function loadSchoolSettings() {
-            try {
-                const saved = localStorage.getItem('school_report_settings');
-                if (saved) schoolSettings = Object.assign(schoolSettings, JSON.parse(saved));
-            } catch (e) {}
-            ['schoolName','educationAdmin','schoolStage','schoolYear'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = schoolSettings[id] || '';
-            });
+        function showLogin(show=true){
+            document.getElementById('loginOverlay').style.display = show ? 'flex' : 'none';
+            document.getElementById('appContainer').style.display = show ? 'none' : 'block';
+        }
+        function loginError(msg){
+            const e=document.getElementById('loginError'); e.innerText=msg; e.style.display='block';
+        }
+        function escapeHtml(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+        function usernameEmail(username){ return username.trim().toLowerCase() + '@schoolattendance.local'; }
+
+        async function loginSchool(){
+            const username=document.getElementById('loginUsername').value.trim();
+            const password=document.getElementById('loginPassword').value;
+            const requestedRole=document.getElementById('loginRole')?.value || 'school_admin';
+            const btn=document.getElementById('loginBtn');
+            document.getElementById('loginError').style.display='none';
+            if(!username||!password){ loginError('اكتب اسم المستخدم وكلمة المرور.'); return; }
+            btn.disabled=true; btn.innerText='⏳ جاري الدخول...';
+            try{
+                const {data,error}=await supabaseClient.auth.signInWithPassword({email:usernameEmail(username),password});
+                if(error) throw error;
+                currentUser=data.user;
+                await loadCloudSchool();
+                if(requestedRole !== currentRole && !(requestedRole === 'school_admin' && currentRole === 'platform_admin')){
+                    await supabaseClient.auth.signOut();
+                    currentUser=null; currentSchool=null; currentMembership=null;
+                    throw new Error('ROLE_MISMATCH');
+                }
+                applyRoleUI();
+                showLogin(false);
+                await loadData();
+                loadSchoolSettings();
+                applyRoleUI();
+                saveData();
+                showToast('✅ تم تسجيل الدخول بنجاح');
+            }catch(e){
+                await supabaseClient.auth.signOut();
+                currentUser=null; currentSchool=null;
+                loginError(e.message === 'ROLE_MISMATCH' ? `الحساب صحيح، لكن نوع الدخول المختار «${loginRoleLabel(requestedRole)}» لا يطابق صلاحية هذا الحساب.` : (e.message === 'USER_INACTIVE' ? 'هذا الحساب موقوف بواسطة مدير المدرسة.' : (e.message && e.message.includes('Invalid login') ? 'اسم المستخدم أو كلمة المرور غير صحيحة.' : 'تعذر تسجيل الدخول. تأكد من بيانات المدرسة واتصال الإنترنت.')));
+            }finally{btn.disabled=false;btn.innerText='🔐 دخول';}
         }
 
-        function saveSchoolSettings() {
-            schoolSettings.schoolName = (document.getElementById('schoolName').value || '').trim() || 'اسم المدرسة';
-            schoolSettings.educationAdmin = (document.getElementById('educationAdmin').value || '').trim();
-            schoolSettings.schoolStage = (document.getElementById('schoolStage').value || '').trim();
-            schoolSettings.schoolYear = (document.getElementById('schoolYear').value || '').trim();
-            localStorage.setItem('school_report_settings', JSON.stringify(schoolSettings));
+        async function loadCloudSchool(){
+            const {data,error}=await supabaseClient.from('school_users').select('role, display_name, assigned_grade, assigned_class, is_active, school_id, schools!inner(id,school_name,username,is_active,education_admin,school_stage,school_year)').eq('user_id',currentUser.id).maybeSingle();
+            if(error) throw error;
+            if(!data || !data.schools || !data.schools.is_active) throw new Error('SCHOOL_INACTIVE');
+            if(data.is_active===false) throw new Error('USER_INACTIVE');
+            currentMembership=data;
+            currentRole=data.role || 'school_user';
+            currentAssignedGrade=data.assigned_grade || '';
+            currentAssignedClass=data.assigned_class || '';
+            currentSchool=data.schools;
+            document.getElementById('loggedSchoolName').innerText=currentSchool.school_name;
+            const roleEl=document.getElementById("loggedUserRole"); if(roleEl) roleEl.innerText = isSchoolAdmin() ? "👑 مدير المدرسة" : "👤 موظف";
+            schoolSettings={schoolName:currentSchool.school_name||'',educationAdmin:currentSchool.education_admin||'',schoolStage:currentSchool.school_stage||'',schoolYear:currentSchool.school_year||'',schoolManager:'',studentAffairsOfficer:''};
+            try{const {data:cfg}=await supabaseClient.from('school_settings').select('settings').eq('school_id',currentSchool.id).maybeSingle(); if(cfg&&cfg.settings) schoolSettings=Object.assign(schoolSettings,cfg.settings); normalizeAttendanceSession(); updateAttendanceSessionUI();}catch(e){console.warn('تعذر تحميل إعدادات المدرسة الإضافية',e); normalizeAttendanceSession(); updateAttendanceSessionUI();}
+        }
+
+        function normalizeAttendanceSession(){
+            if(!schoolSettings || typeof schoolSettings!=='object') schoolSettings={};
+            if(!schoolSettings.attendanceSession || typeof schoolSettings.attendanceSession!=='object') schoolSettings.attendanceSession={};
+            if(!Array.isArray(schoolSettings.attendanceSession.closedDates)) schoolSettings.attendanceSession.closedDates=[];
+            if(typeof schoolSettings.attendanceSession.openDate!=='string') schoolSettings.attendanceSession.openDate='';
+        }
+
+        function isSessionClosed(date){
+            normalizeAttendanceSession();
+            return schoolSettings.attendanceSession.closedDates.includes(date);
+        }
+
+        function isSessionOpen(date){
+            normalizeAttendanceSession();
+            return schoolSettings.attendanceSession.openDate===date && !isSessionClosed(date);
+        }
+
+        function updateAttendanceSessionUI(){
+            normalizeAttendanceSession();
+            const date=document.getElementById('datePicker')?.value||'';
+            const status=document.getElementById('attendanceSessionStatus');
+            const hint=document.getElementById('attendanceSessionHint');
+            const openBtn=document.getElementById('openSessionBtn');
+            const closeBtn=document.getElementById('closeSessionBtn');
+            const reopenBtn=document.getElementById('reopenSessionBtn');
+            if(!status)return;
+            const admin=isSchoolAdmin();
+            const officer=isAbsenceOfficer();
+            const open=isSessionOpen(date);
+            const closed=isSessionClosed(date);
+            if(closed){
+                status.className='session-state session-closed-note';
+                status.textContent=`🔒 يوم ${arabicDateFromISO(date)} مغلق`;
+                hint.textContent=admin?'يمكن لمدير المدرسة إعادة فتح هذا اليوم عند الحاجة.':'هذا اليوم مغلق ولا يمكن لمسؤول الغياب تعديله.';
+            }else if(open){
+                status.className='session-state session-open-note';
+                status.textContent=`🟢 جلسة حضور مفتوحة ليوم ${arabicDateFromISO(date)}`;
+                hint.textContent=admin||officer?'يمكن الآن تسجيل الحضور والغياب لهذا اليوم.':' ';
+            }else{
+                status.className='session-state';
+                status.textContent=`⚪ لا توجد جلسة مفتوحة ليوم ${arabicDateFromISO(date)}`;
+                hint.textContent=admin||officer?'اختر التاريخ ثم اضغط «فتح يوم حضور جديد».':'انتظر فتح جلسة الحضور بواسطة المسؤول.';
+            }
+            if(openBtn) openBtn.style.display=(admin||officer)&&!open?'inline-block':'none';
+            if(closeBtn) closeBtn.style.display=(admin||officer)&&open?'inline-block':'none';
+            if(reopenBtn) reopenBtn.style.display=admin&&closed?'inline-block':'none';
+        }
+
+        function arabicDateFromISO(v){
+            if(!v)return 'غير محدد';
+            const p=v.split('-');
+            return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:v;
+        }
+
+        async function persistAttendanceSession(action, date){
+            if(!currentSchool || !currentUser)return false;
+            const sessionDate = date || document.getElementById('datePicker')?.value || '';
+            if(!sessionDate){showToast('❌ اختر تاريخ الجلسة أولًا.');return false;}
+            const allowedActions = ['open','close','reopen'];
+            if(!allowedActions.includes(action)){showToast('❌ إجراء جلسة غير صالح.');return false;}
+            try{
+                const {error}=await supabaseClient.rpc('set_attendance_session',{
+                    p_school_id: currentSchool.id,
+                    p_date: sessionDate,
+                    p_action: action
+                });
+                if(error) throw error;
+                const {data:cfg,error:cfgError}=await supabaseClient.from('school_settings').select('settings').eq('school_id',currentSchool.id).maybeSingle();
+                if(cfgError) throw cfgError;
+                if(cfg && cfg.settings){
+                    schoolSettings=Object.assign(schoolSettings,cfg.settings);
+                    normalizeAttendanceSession();
+                }
+                return true;
+            }catch(error){
+                console.error('set_attendance_session',error);
+                showToast('❌ تعذر حفظ حالة جلسة الحضور: '+(error.message||error));
+                return false;
+            }
+        }
+
+        async function openAttendanceSession(){
+            if(!isSchoolAdmin()&&!isAbsenceOfficer()){alert('⛔ لا تملك صلاحية فتح جلسة حضور.');return;}
+            const date=document.getElementById('datePicker').value;
+            if(!date){alert('اختر تاريخ اليوم أولًا.');return;}
+            normalizeAttendanceSession();
+            if(isSessionClosed(date)){
+                if(!isSchoolAdmin()){alert('⛔ هذا اليوم مغلق بالفعل. إعادة الفتح من صلاحية مدير المدرسة فقط.');return;}
+                alert('🔒 هذا اليوم مغلق. استخدم «إعادة فتح اليوم» بدل فتح جلسة جديدة.');return;
+            }
+            if(!confirm(`فتح جلسة حضور ليوم ${arabicDateFromISO(date)}؟`))return;
+            if(!await persistAttendanceSession('open',date))return;
+            updateAttendanceSessionUI();
+            await loadAttendanceForDate(date);
+            showToast('🟢 تم فتح جلسة الحضور لهذا اليوم');
+        }
+
+        async function reopenAttendanceSession(){
+            if(!isSchoolAdmin()){alert('⛔ إعادة فتح يوم مغلق من صلاحية مدير المدرسة فقط.');return;}
+            const date=document.getElementById('datePicker').value;
+            if(!date||!isSessionClosed(date)){return;}
+            if(!confirm(`إعادة فتح يوم ${arabicDateFromISO(date)} للتعديل؟`))return;
+            if(!await persistAttendanceSession('reopen',date))return;
+            updateAttendanceSessionUI();
+            await loadAttendanceForDate(date);
+            showToast('🔓 تم إعادة فتح اليوم');
+        }
+
+        async function logoutSchool(){
+            if(isCameraRunning && html5QrCode){ try{await html5QrCode.stop();}catch(e){} isCameraRunning=false; }
+            await supabaseClient.auth.signOut();
+            currentUser=null; currentSchool=null; currentMembership=null; currentRole="school_user"; currentAssignedGrade=""; currentAssignedClass=""; students=[]; attendance={};
+            const lr=document.getElementById('loginRole'); if(lr) lr.value='school_admin'; updateLoginRoleHint();
+            showLogin(true);
+            document.getElementById('loginPassword').value='';
+        }
+
+        async function createStaffAccount(){
+            if(!isSchoolAdmin() || !currentSchool){ alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            const displayName=(document.getElementById('staffDisplayName')?.value||'').trim();
+            const username=(document.getElementById('staffUsername')?.value||'').trim().toLowerCase();
+            const password=document.getElementById('staffPassword')?.value||'';
+            const role=document.getElementById('staffRole')?.value||'absence_officer';
+            const assignedGrade=(document.getElementById('staffAssignedGrade')?.value||'').trim();
+            const assignedClass=(document.getElementById('staffAssignedClass')?.value||'').trim();
+            const status=document.getElementById('staffManagementStatus');
+            if(!displayName||!username||!password){ alert('اكتب اسم الموظف واسم المستخدم وكلمة المرور.'); return; }
+            if(password.length<6){ alert('كلمة المرور يجب ألا تقل عن 6 أحرف.'); return; }
+            status.textContent='⏳ جاري إنشاء الحساب...';
+            try{
+                const {data:{session}}=await supabaseClient.auth.getSession();
+                if(!session) throw new Error('انتهت جلسة الدخول.');
+                const res=await fetch(SUPABASE_URL+'/functions/v1/create-school-user',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({school_id:currentSchool.id,display_name:displayName,username,password,role,assigned_grade:assignedGrade,assigned_class:assignedClass})});
+                const out=await res.json().catch(()=>({}));
+                if(!res.ok) throw new Error(out.error||out.message||'تعذر إنشاء الحساب');
+                status.textContent='✅ تم إنشاء حساب الموظف بنجاح.';
+                ['staffDisplayName','staffUsername','staffPassword','staffAssignedGrade','staffAssignedClass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+                await loadSchoolStaff();
+            }catch(e){ console.error(e); status.textContent='❌ '+(e.message||e); }
+        }
+
+        async function loadSchoolStaff(){
+            const box=document.getElementById('staffAssignmentBox');
+            if(!box || !isSchoolAdmin() || !currentSchool) return;
+            const a=document.getElementById('absenceOfficerSelect');
+            const b=document.getElementById('studentAffairsSelect');
+            const status=document.getElementById('staffAssignmentStatus');
+            if(!a||!b) return;
+            const savedAbs=schoolSettings.absenceOfficerUserId||'';
+            const savedAff=schoolSettings.studentAffairsUserId||'';
+            a.innerHTML='<option value="">📝 اختر مسؤول الغياب</option>';
+            b.innerHTML='<option value="">👥 اختر مسؤول شؤون الطلبة</option>';
+            try{
+                const {data,error}=await supabaseClient.from('school_users')
+                    .select('user_id,display_name,role,assigned_grade,assigned_class,is_active')
+                    .eq('school_id',currentSchool.id)
+                    .neq('role','school_admin')
+                    .order('display_name',{ascending:true});
+                if(error) throw error;
+                const rows=data||[];
+                rows.forEach(r=>{
+                    const name=r.display_name||('حساب '+String(r.user_id).slice(0,8));
+                    const scope=(r.assigned_grade||r.assigned_class)?` — ${r.assigned_grade||''}${r.assigned_class?' / فصل '+r.assigned_class:''}`:'';
+                    const label=name+' '+(r.role==='absence_officer'?'(مسؤول غياب)':r.role==='student_affairs'?'(شؤون طلبة)':'(موظف)')+scope;
+                    const o1=document.createElement('option'); o1.value=r.user_id; o1.textContent=label; a.appendChild(o1);
+                    const o2=document.createElement('option'); o2.value=r.user_id; o2.textContent=label; b.appendChild(o2);
+                });
+                a.value=rows.some(r=>r.user_id===savedAbs)?savedAbs:'';
+                b.value=rows.some(r=>r.user_id===savedAff)?savedAff:'';
+                status.textContent=rows.length?`عدد حسابات الموظفين المتاحة: ${rows.length}`:'لا توجد حسابات موظفين مضافة بعد.';
+                const list=document.getElementById('staffManagementList');
+                if(list){ list.innerHTML=rows.length ? rows.map(r=>{ const active=r.is_active!==false; const uid=String(r.user_id); return `<div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-top:7px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div><b>${escapeHtml(r.display_name||'بدون اسم')}</b> — ${roleLabel(r.role)}${r.assigned_grade?` — ${escapeHtml(r.assigned_grade)}`:''}${r.assigned_class?` / فصل ${escapeHtml(r.assigned_class)}`:''}<div style="font-size:.8rem;margin-top:4px;color:${active?'#15803d':'#b91c1c'};font-weight:bold;">${active?'🟢 الحساب نشط':'⏸️ الحساب موقوف'}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn ${active?'btn-warning':'btn-success'}" style="padding:7px 10px;" onclick="setStaffActive('${uid}',${active?'false':'true'})">${active?'⏸️ إيقاف':'▶️ تفعيل'}</button><button class="btn btn-danger" style="padding:7px 10px;" onclick="removeStaff('${uid}')">🗑️ حذف</button></div></div>`; }).join('') : '<div style="text-align:center;color:#94a3b8;padding:10px;">لا توجد حسابات موظفين حتى الآن.</div>'; }
+            }catch(e){
+                console.error(e);
+                status.textContent='❌ تعذر تحميل حسابات الموظفين: '+(e.message||e);
+            }
+        }
+
+        async function setStaffActive(userId, active){
+            if(!isSchoolAdmin() || !currentSchool){ alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            if(!userId) return;
+            const action=active?'تفعيل':'إيقاف';
+            if(!confirm(`هل تريد ${action} حساب هذا الموظف؟`)) return;
+            try{
+                const {error}=await supabaseClient.from('school_users').update({is_active:active}).eq('school_id',currentSchool.id).eq('user_id',userId);
+                if(error) throw error;
+                if(!active){
+                    if(schoolSettings.absenceOfficerUserId===userId) schoolSettings.absenceOfficerUserId='';
+                    if(schoolSettings.studentAffairsUserId===userId) schoolSettings.studentAffairsUserId='';
+                    await supabaseClient.from('school_settings').upsert({school_id:currentSchool.id,settings:schoolSettings,updated_at:new Date().toISOString()},{onConflict:'school_id'});
+                }
+                await loadSchoolStaff();
+                showToast(active?'▶️ تم تفعيل حساب الموظف':'⏸️ تم إيقاف حساب الموظف');
+            }catch(e){ console.error(e); alert('❌ تعذر '+action+' الحساب: '+(e.message||e)); }
+        }
+
+        async function removeStaff(userId){
+            if(!isSchoolAdmin() || !currentSchool){ alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            if(!userId) return;
+            if(userId===currentUser?.id){ alert('⛔ لا يمكن حذف حساب مدير المدرسة الحالي من هذه الواجهة.'); return; }
+            if(!confirm('⚠️ سيتم إزالة الموظف من هذه المدرسة ومنعه من تسجيل الدخول إليها.\n\nسجلات الحضور القديمة لن يتم حذفها.\n\nهل تريد المتابعة؟')) return;
+            try{
+                const {error}=await supabaseClient.from('school_users').delete().eq('school_id',currentSchool.id).eq('user_id',userId);
+                if(error) throw error;
+                if(schoolSettings.absenceOfficerUserId===userId) schoolSettings.absenceOfficerUserId='';
+                if(schoolSettings.studentAffairsUserId===userId) schoolSettings.studentAffairsUserId='';
+                await supabaseClient.from('school_settings').upsert({school_id:currentSchool.id,settings:schoolSettings,updated_at:new Date().toISOString()},{onConflict:'school_id'});
+                await loadSchoolStaff();
+                showToast('🗑️ تم حذف الموظف من المدرسة مع الحفاظ على سجلات الحضور');
+            }catch(e){ console.error(e); alert('❌ تعذر حذف الموظف: '+(e.message||e)); }
+        }
+
+        async function saveStaffAssignments(){
+            if(!isSchoolAdmin() || !currentSchool){ alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            const absenceId=document.getElementById('absenceOfficerSelect')?.value||'';
+            const affairsId=document.getElementById('studentAffairsSelect')?.value||'';
+            if(absenceId && affairsId && absenceId===affairsId){ alert('⚠️ اختر حسابين مختلفين لمسؤول الغياب وشؤون الطلبة.'); return; }
+            schoolSettings.absenceOfficerUserId=absenceId;
+            schoolSettings.studentAffairsUserId=affairsId;
+            const {error}=await supabaseClient.from('school_settings').upsert({school_id:currentSchool.id,settings:schoolSettings,updated_at:new Date().toISOString()},{onConflict:'school_id'});
+            if(error){ alert('❌ تعذر حفظ تعيين المسؤولين: '+error.message); return; }
+            document.getElementById('staffAssignmentStatus').textContent='✅ تم حفظ تعيين المسؤولين لهذه المدرسة.';
+            showToast('👥 تم حفظ تعيين مسؤولي المدرسة');
+        }
+
+        function loadSchoolSettings(){
+            ['schoolName','educationAdmin','schoolStage','schoolYear','schoolManager','studentAffairsOfficer'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=schoolSettings[id]||'';});
+            if(isSchoolAdmin()) loadSchoolStaff();
+        }
+
+        async function saveSchoolSettings(){
+            if(!currentSchool) return;
+            if(!isSchoolAdmin()){ showToast("⛔ هذا الحساب لا يملك صلاحية تعديل بيانات المدرسة."); return; }
+            schoolSettings.schoolName=(document.getElementById('schoolName').value||'').trim()||currentSchool.school_name;
+            schoolSettings.educationAdmin=(document.getElementById('educationAdmin').value||'').trim();
+            schoolSettings.schoolStage=(document.getElementById('schoolStage').value||'').trim();
+            schoolSettings.schoolYear=(document.getElementById('schoolYear').value||'').trim();
+            schoolSettings.schoolManager=(document.getElementById('schoolManager').value||'').trim();
+            schoolSettings.studentAffairsOfficer=(document.getElementById('studentAffairsOfficer').value||'').trim();
+            const {error}=await supabaseClient.from('schools').update({school_name:schoolSettings.schoolName,education_admin:schoolSettings.educationAdmin,school_stage:schoolSettings.schoolStage,school_year:schoolSettings.schoolYear}).eq('id',currentSchool.id);
+            if(error){showToast('❌ تعذر حفظ بيانات المدرسة');return;}
+            currentSchool.school_name=schoolSettings.schoolName;
+            document.getElementById('loggedSchoolName').innerText=schoolSettings.schoolName;
+            await supabaseClient.from('school_settings').upsert({school_id:currentSchool.id,settings:schoolSettings,updated_at:new Date().toISOString()},{onConflict:'school_id'});
             showToast('🏫 تم حفظ بيانات المدرسة');
         }
 
@@ -394,6 +915,8 @@
             if (schoolSettings.educationAdmin) s += `🏢 الإدارة التعليمية: ${schoolSettings.educationAdmin}\n`;
             if (schoolSettings.schoolStage) s += `🎓 المرحلة التعليمية: ${schoolSettings.schoolStage}\n`;
             if (schoolSettings.schoolYear) s += `📚 العام الدراسي: ${schoolSettings.schoolYear}\n`;
+            if (schoolSettings.schoolManager) s += `👨‍💼 مدير المدرسة: ${schoolSettings.schoolManager}\n`;
+            if (schoolSettings.studentAffairsOfficer) s += `👤 مسؤول شئون الطلبة: ${schoolSettings.studentAffairsOfficer}\n`;
             return s;
         }
 
@@ -409,27 +932,66 @@
             else showToast('لا توجد بيانات للإرسال.');
         }
 
-        function loadData() {
-            try {
-                const savedStudents = localStorage.getItem('school_students');
-                const savedAttendance = localStorage.getItem('school_attendance');
-                students = savedStudents ? JSON.parse(savedStudents) : [];
-                attendance = savedAttendance ? JSON.parse(savedAttendance) : {};
-            } catch(e) {
-                students = [];
-                attendance = {};
+        async function loadData(){
+            if(!currentSchool) return;
+            const {data,error}=await supabaseClient.from('students').select('*').eq('school_id',currentSchool.id).order('student_name');
+            if(error) throw error;
+            let allStudentRows=(data||[]).map(r=>({id:r.national_id||r.student_code||r.id,name:r.student_name,grade:r.grade||'الثانى',classNum:r.class_name||'1',dbId:r.id,studentCode:r.student_code||'',extraData:r.extra_data||{}}));
+            // الموظف يرى فقط الطلاب المسندين إليه؛ المدير يرى جميع طلاب المدرسة.
+            if(isEmployee()){
+                students=allStudentRows.filter(s=>{
+                    const gradeOk=!currentAssignedGrade || String(s.grade).trim()===String(currentAssignedGrade).trim();
+                    const classOk=!currentAssignedClass || String(s.classNum).trim()===String(currentAssignedClass).trim();
+                    return gradeOk && classOk;
+                });
+            }else{
+                students=allStudentRows;
             }
+            await loadAttendanceForDate(document.getElementById('datePicker').value);
         }
 
-        function saveData() {
-            localStorage.setItem('school_students', JSON.stringify(students));
-            localStorage.setItem('school_attendance', JSON.stringify(attendance));
-            updateStats();
-            renderClassStats();
-            renderStudentsList();
+        async function loadAttendanceForDate(date){
+            if(!currentSchool||!date)return;
+            const {data,error}=await supabaseClient.from('attendance').select('id,student_id,status,attendance_date').eq('school_id',currentSchool.id).eq('attendance_date',date);
+            if(error){showToast('❌ تعذر تحميل سجل الحضور');return;}
+            attendance={};
+            const byDbId=new Map(students.map(s=>[s.dbId,s.id]));
+            (data||[]).forEach(r=>{const localId=byDbId.get(r.student_id);if(localId)attendance[localId]=r.status;});
+            cloudAttendanceLoadedForDate=date;
+            updateStats(); renderClassStats(); renderStudentsList();
         }
+
+        async function saveAttendanceRecord(localId,status){
+            if(isStudentAffairs()){ alert('⛔ حساب شؤون الطلبة لا يملك صلاحية تسجيل الحضور والغياب.'); return false; }
+            if(!currentSchool)return false;
+            const date=document.getElementById('datePicker').value;
+            if(!isSchoolAdmin() && !isSessionOpen(date)){ alert('⛔ لا توجد جلسة حضور مفتوحة لهذا اليوم. افتح اليوم أولًا من «فتح يوم حضور جديد».'); updateAttendanceSessionUI(); return false; }
+            const student=students.find(s=>s.id===localId); if(!student)return false;
+            if(isEmployee()){
+                const gradeOk=!currentAssignedGrade || String(student.grade).trim()===String(currentAssignedGrade).trim();
+                const classOk=!currentAssignedClass || String(student.classNum).trim()===String(currentAssignedClass).trim();
+                if(!gradeOk || !classOk){ alert('⛔ هذا الطالب ليس ضمن الفرقة/الفصل المخصص لك.'); return false; }
+            }
+            const {data:existing,error:selErr}=await supabaseClient.from('attendance').select('id').eq('school_id',currentSchool.id).eq('student_id',student.dbId).eq('attendance_date',date).maybeSingle();
+            if(selErr){showToast('❌ تعذر حفظ الحضور');return false;}
+            let error;
+            if(existing) ({error}=await supabaseClient.from('attendance').update({status,recorded_by:currentUser.id,recorded_at:new Date().toISOString()}).eq('id',existing.id));
+            else ({error}=await supabaseClient.from('attendance').insert({school_id:currentSchool.id,student_id:student.dbId,attendance_date:date,status,recorded_by:currentUser.id}));
+            if(error){showToast('❌ تعذر حفظ الحضور');return false;}
+            return true;
+        }
+
+        async function saveStudentToCloud(s){
+            if(!isSchoolAdmin()) throw new Error('الموظف لا يملك صلاحية إدارة الطلاب');
+            const payload={school_id:currentSchool.id,student_code:s.studentCode||s.id,national_id:s.id,student_name:s.name,grade:s.grade,class_name:String(s.classNum),extra_data:s.extraData||{}};
+            if(s.dbId){const {data,error}=await supabaseClient.from('students').update(payload).eq('id',s.dbId).select().single(); if(error)throw error; s.dbId=data.id;}
+            else {const {data,error}=await supabaseClient.from('students').insert(payload).select().single(); if(error)throw error; s.dbId=data.id;}
+        }
+
+        function saveData(){ updateStats(); renderClassStats(); renderStudentsList(); }
 
         function importExcelFile(input) {
+            if(!isSchoolAdmin()){ alert("⛔ الموظف لا يملك صلاحية استيراد الطلاب من Excel."); if(input) input.value=""; return; }
             const file = input.files[0];
             if (!file) return;
 
@@ -469,70 +1031,75 @@
             parseWorkbookSheets(workbook);
         }
 
-        function parseWorkbookSheets(workbook) {
+        async function parseWorkbookSheets(workbook) {
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
             const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            if (!jsonRows.length) { alert('الملف فارغ!'); return; }
 
-            if (jsonRows.length === 0) {
-                alert('الملف فارغ!');
-                return;
-            }
-
-            let headerRowIndex = -1;
-            let nameCol = -1, idCol = -1, gradeCol = -1, classCol = -1;
-
-            for (let i = 0; i < Math.min(jsonRows.length, 5); i++) {
-                let row = jsonRows[i];
-                if (!row) continue;
-                for (let j = 0; j < row.length; j++) {
-                    let cellVal = String(row[j] || '').trim();
-                    if (cellVal.includes('الاسم')) nameCol = j;
-                    if (cellVal.includes('القومى') || cellVal.includes('القومي')) idCol = j;
-                    if (cellVal.includes('الصف')) gradeCol = j;
-                    if (cellVal.includes('الفصل')) classCol = j;
+            let headerRowIndex=-1, nameCol=-1, idCol=-1, gradeCol=-1, classCol=-1;
+            for(let i=0;i<Math.min(jsonRows.length,8);i++){
+                const row=jsonRows[i]||[];
+                for(let j=0;j<row.length;j++){
+                    const v=String(row[j]??'').trim();
+                    if(v.includes('الاسم')) nameCol=j;
+                    if(v.includes('القومى')||v.includes('القومي')) idCol=j;
+                    if(v.includes('الصف')) gradeCol=j;
+                    if(v.includes('الفصل')) classCol=j;
                 }
-                if (nameCol !== -1 && idCol !== -1) {
-                    headerRowIndex = i;
-                    break;
-                }
+                if(nameCol!==-1 && idCol!==-1){headerRowIndex=i;break;}
             }
+            if(headerRowIndex===-1){nameCol=1;idCol=2;classCol=3;gradeCol=4;headerRowIndex=0;}
 
-            if (headerRowIndex === -1) {
-                nameCol = 1; 
-                idCol = 2; 
-                classCol = 3; 
-                gradeCol = 4;
-                headerRowIndex = 0;
-            }
-
-            let addedCount = 0;
-            for (let i = headerRowIndex + 1; i < jsonRows.length; i++) {
-                let row = jsonRows[i];
-                if (!row) continue;
-
-                let name = String(row[nameCol] || '').trim();
-                let id = String(row[idCol] || '').trim();
-                let grade = gradeCol !== -1 ? String(row[gradeCol] || 'الثانى').trim() : 'الثانى';
-                let classNum = classCol !== -1 ? String(row[classCol] || '1').trim() : '1';
-
-                id = id.replace(/\D/g, '');
-
-                if (name && id.length >= 5) {
-                    if (!students.some(s => s.id === id)) {
-                        students.push({ id, name, grade, classNum });
-                        addedCount++;
-                    }
+            const rows=[];
+            const seen=new Set(students.map(s=>String(s.id||'').trim()));
+            for(let i=headerRowIndex+1;i<jsonRows.length;i++){
+                const row=jsonRows[i]||[];
+                let name=String(row[nameCol]??'').trim();
+                let id=String(row[idCol]??'').trim().replace(/\D/g,'');
+                let grade=gradeCol!==-1?String(row[gradeCol]??'الثانى').trim():'الثانى';
+                let classNum=classCol!==-1?String(row[classCol]??'1').trim():'1';
+                if(name && id.length>=5 && !seen.has(id)){
+                    seen.add(id);
+                    rows.push({id,name,grade,classNum});
                 }
             }
+            if(!rows.length){showToast('ℹ️ لا توجد طلاب جدد للاستيراد.');return;}
 
+            // الاستيراد السريع: إرسال الطلاب إلى Supabase على دفعات بدل حفظ كل طالب منفردًا.
+            let addedCount=0;
+            for(let i=0;i<rows.length;i+=500){
+                const batch=rows.slice(i,i+500).map(s=>({
+                    school_id:currentSchool.id,
+                    student_code:s.id,
+                    national_id:s.id,
+                    student_name:s.name,
+                    grade:s.grade,
+                    class_name:String(s.classNum),
+                    extra_data:{}
+                }));
+                const {data,error}=await supabaseClient.from('students').insert(batch).select('id,student_code,national_id,student_name,grade,class_name');
+                if(error) throw error;
+                (data||[]).forEach(r=>{
+                    students.push({
+                        dbId:r.id,
+                        id:r.national_id||r.student_code,
+                        studentCode:r.student_code,
+                        name:r.student_name,
+                        grade:r.grade,
+                        classNum:r.class_name
+                    });
+                    addedCount++;
+                });
+                showToast(`⏳ جاري الاستيراد... ${addedCount} من ${rows.length}`);
+            }
             saveData();
-            showToast(`✅ تم استيراد ${addedCount} طالب بنجاح من ملف الإكسل!`);
+            showToast(`✅ تم استيراد ${addedCount} طالب بنجاح وبسرعة`);
         }
 
         function updateStats() {
             let activeScope = document.getElementById('statScopeSelect').value;
-            let targetStudents = students;
+            let targetStudents = getVisibleStudents();
 
             if (activeScope.startsWith('grade_')) {
                 let targetGrade = activeScope.split('_')[1];
@@ -606,7 +1173,7 @@
             const statusFilter = document.getElementById('statusFilter').value;
             const gradeFilter = document.getElementById('gradeFilter').value;
 
-            let filtered = students.filter(s => {
+            let filtered = getVisibleStudents().filter(s => {
                 let matchClass = (classFilter === 'all' || s.classNum == classFilter);
                 let status = attendance[s.id] || 'absent';
                 let matchStatus = (statusFilter === 'all' || status === statusFilter);
@@ -628,8 +1195,8 @@
                         <div class="student-name">${s.name}</div>
                         <div class="student-details">الرقم القومي: ${s.id} | ${s.grade} - فصل ${s.classNum}</div>
                         <div>
-                            <button class="mini-btn edit-mini" onclick="prepareEditStudent('${s.id}')">✏️ تعديل</button>
-                            <button class="mini-btn delete-mini" onclick="deleteSpecificStudent('${s.id}')">🗑️ حذف</button>
+                            ${isSchoolAdmin() ? `<button class="mini-btn edit-mini" onclick="prepareEditStudent('${s.id}')">✏️ تعديل</button>
+                            <button class="mini-btn delete-mini" onclick="deleteSpecificStudent('${s.id}')">🗑️ حذف</button>` : `<span style="font-size:.75rem;color:#64748b;">👤 عرض وتسجيل حضور فقط</span>`}
                         </div>
                     </div>
                     <div>
@@ -641,9 +1208,12 @@
             });
         }
 
-        function setStatus(id, status) {
-            attendance[id] = status;
-            saveData();
+        async function setStatus(id,status){
+            if(isStudentAffairs()){alert('⛔ حساب شؤون الطلبة لا يملك صلاحية تسجيل الحضور والغياب.');return;}
+            const date=document.getElementById('datePicker').value;
+            if(!isSchoolAdmin() && !isSessionOpen(date)){alert('⛔ اليوم غير مفتوح لتسجيل الحضور.');updateAttendanceSessionUI();return;}
+            const old=attendance[id]||'absent'; attendance[id]=status; saveData();
+            if(!(await saveAttendanceRecord(id,status))){attendance[id]=old;saveData();}
         }
 
         // وظيفة البحث السريع لتسجيل الحضور/الغياب اليدوي
@@ -687,10 +1257,10 @@
             resDiv.innerHTML = html;
         }
 
-        function quickToggleStatus(id) {
+        async function quickToggleStatus(id) {
             let currentStatus = attendance[id] || 'absent';
-            attendance[id] = currentStatus === 'present' ? 'absent' : 'present';
-            saveData();
+            const nextStatus = currentStatus === 'present' ? 'absent' : 'present';
+            await setStatus(id, nextStatus);
             let s = students.find(item => item.id === id);
             if(s) {
                 showToast(`تم تحديث حالة الطالب (${s.name}) بنجاح`);
@@ -699,11 +1269,13 @@
             document.getElementById('quickSearchResults').style.display = 'none';
         }
 
-        function clearAllStudentsDatabase() {
+        async function clearAllStudentsDatabase() {
+            if(!isSchoolAdmin()){ alert("⛔ الموظف لا يملك صلاحية مسح الطلاب."); return; }
             if (confirm('⚠️ تحذير خطير: هل تريد مسح جميع الطلاب من قاعدة البيانات نهائياً؟')) {
-                students = [];
-                attendance = {};
-                saveData();
+                if(!currentSchool)return;
+                const {error}=await supabaseClient.from('students').delete().eq('school_id',currentSchool.id);
+                if(error){alert('❌ تعذر مسح الطلاب من قاعدة البيانات.');return;}
+                students = []; attendance = {}; saveData();
                 showToast('تم مسح جميع الطلاب والقاعدة بنجاح');
             }
         }
@@ -740,7 +1312,8 @@
             showToast('📋 تم نسخ قائمة الغائبين بنجاح!');
         }
 
-        function addStudent() {
+        async function addStudent() {
+            if(!isSchoolAdmin()){ alert("⛔ الموظف لا يملك صلاحية إضافة الطلاب."); return; }
             const name = document.getElementById('studentName').value.trim();
             const id = document.getElementById('studentNationalId').value.trim();
             const grade = document.getElementById('studentGrade').value;
@@ -750,13 +1323,14 @@
             if (id.length < 5) { alert('⚠️ خطأ: الرقم القومي أو الكود قصير جداً.'); return; }
             if (students.some(s => s.id === id)) { alert('هذا الرقم القومي مسجل مسبقاً!'); return; }
 
-            students.push({ id, name, grade, classNum });
-            saveData();
+            const studentObj={ id, name, grade, classNum };
+            try{ await saveStudentToCloud(studentObj); students.push(studentObj); saveData(); }catch(e){ alert('❌ تعذر إضافة الطالب إلى قاعدة البيانات.'); return; }
             clearStudentForm();
             showToast('✅ تمت إضافة الطالب بنجاح');
         }
 
         function prepareEditStudent(id) {
+            if(!isSchoolAdmin()){ showToast("⛔ الموظف لا يملك صلاحية تعديل الطلاب."); return; }
             const s = students.find(item => item.id === id);
             if (!s) return;
             document.getElementById('studentName').value = s.name;
@@ -768,7 +1342,8 @@
             document.getElementById('selectedStudentMsg').innerHTML = `جاري تعديل بيانات: <b>${s.name}</b>`;
         }
 
-        function updateStudent() {
+        async function updateStudent() {
+            if(!isSchoolAdmin()){ alert("⛔ الموظف لا يملك صلاحية تعديل بيانات الطلاب."); return; }
             if (!selectedStudentIdForEdit) { alert('اختر طالباً للتعديل أولاً.'); return; }
             const name = document.getElementById('studentName').value.trim();
             const grade = document.getElementById('studentGrade').value;
@@ -781,22 +1356,28 @@
                 s.name = name;
                 s.grade = grade;
                 s.classNum = classNum;
-                saveData();
+                try{ await saveStudentToCloud(s); saveData(); }catch(e){ alert('❌ تعذر حفظ تعديل الطالب.'); return; }
                 clearStudentForm();
                 showToast('✏️ تم التعديل بنجاح');
             }
         }
 
-        function deleteSpecificStudent(id) {
+        async function deleteSpecificStudent(id) {
+            if(!isSchoolAdmin()){ alert("⛔ الموظف لا يملك صلاحية حذف الطلاب."); return; }
             if (confirm('هل أنت متأكد من حذف هذا الطالب نهائياً؟')) {
-                students = students.filter(s => s.id !== id);
+                const s=students.find(x=>x.id===id);
+                if(!s)return;
+                const {error}=await supabaseClient.from('students').delete().eq('id',s.dbId);
+                if(error){alert('❌ تعذر حذف الطالب من قاعدة البيانات.');return;}
+                students = students.filter(x => x.id !== id);
                 delete attendance[id];
                 saveData();
                 showToast('🗑️ تم حذف الطالب بنجاح');
             }
         }
 
-        function deleteSelectedStudent() {
+        async function deleteSelectedStudent() {
+            if(!isSchoolAdmin()){ alert("⛔ الموظف لا يملك صلاحية حذف الطلاب."); return; }
             if (selectedStudentIdForEdit) {
                 deleteSpecificStudent(selectedStudentIdForEdit);
                 clearStudentForm();
@@ -812,6 +1393,7 @@
         }
 
         function exportBackup() {
+            if(!isSchoolAdmin()){ alert('⛔ الموظف لا يملك صلاحية تصدير النسخة الاحتياطية.'); return; }
             const data = { students, attendance, schoolSettings };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -823,6 +1405,7 @@
         }
 
         function importBackup(input) {
+            if(!isSchoolAdmin()){ alert('⛔ الموظف لا يملك صلاحية استيراد النسخ الاحتياطية.'); if(input) input.value=''; return; }
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -845,18 +1428,44 @@
             reader.readAsText(file);
         }
 
-        function endSession() {
-            document.getElementById('sessionEndedMsg').classList.add('show');
-            showToast('✅ تم إنهاء الجلسة');
+        async function endSession() {
+            if(!isSchoolAdmin()&&!isAbsenceOfficer()){alert('⛔ لا تملك صلاحية إنهاء جلسة الحضور.');return;}
+            if(!currentSchool||!currentUser){alert('يجب تسجيل الدخول أولًا.');return;}
+            const date=document.getElementById('datePicker').value;
+            if(!date){alert('اختر تاريخ الجلسة أولًا.');return;}
+            if(!isSessionOpen(date)){alert('⛔ لا توجد جلسة مفتوحة لهذا اليوم.');return;}
+            if(!students.length){showToast('⚠️ لا توجد بيانات طلاب.');return;}
+            if(!confirm(`سيتم تسجيل كل طالب لم يتم تسجيل حضوره كـ «غائب» ثم إغلاق يوم ${arabicDateFromISO(date)}. هل تريد المتابعة؟`))return;
+            try{
+                const {data:existing,error:selErr}=await supabaseClient.from('attendance').select('student_id,status').eq('school_id',currentSchool.id).eq('attendance_date',date);
+                if(selErr) throw selErr;
+                const existingIds=new Set((existing||[]).map(r=>r.student_id));
+                const missing=students.filter(s=>s.dbId&&!existingIds.has(s.dbId));
+                for(let i=0;i<missing.length;i+=500){
+                    const batch=missing.slice(i,i+500).map(s=>({school_id:currentSchool.id,student_id:s.dbId,attendance_date:date,status:'absent',recorded_by:currentUser.id}));
+                    if(batch.length){const {error}=await supabaseClient.from('attendance').insert(batch);if(error)throw error;}
+                }
+                if(!await persistAttendanceSession('close',date))return;
+                await loadAttendanceForDate(date);
+                document.getElementById('sessionEndedMsg').classList.add('show');
+                updateAttendanceSessionUI();
+                showToast(`🔒 تم إغلاق اليوم وتسجيل ${missing.length} طالب غياب`);
+            }catch(e){console.error(e);alert('❌ تعذر إنهاء الجلسة وتسجيل الغياب: '+(e.message||e));}
         }
 
-        function resetForNewDay() {
-            if (confirm('🔄 هل تريد بدء يوم غياب جديد وتصفير الحضور؟')) {
-                attendance = {};
-                document.getElementById('sessionEndedMsg').classList.remove('show');
-                saveData();
-                showToast('🔄 جاهز ليوم جديد بنجاح');
-            }
+        async function resetForNewDay() {
+            if(!isSchoolAdmin()){ alert("⛔ بدء يوم جديد من صلاحية مدير المدرسة فقط."); return; }
+            if(!currentSchool||!currentUser){ alert('يجب تسجيل الدخول أولًا.'); return; }
+            const currentDate=document.getElementById('datePicker').value;
+            if(!currentDate){ alert('اختر التاريخ أولًا.'); return; }
+            const nextDate=addDaysISO(currentDate,1);
+            if(!confirm(`بدء يوم حضور جديد بتاريخ ${arabicDateFromISO(nextDate)}؟\nلن يتم حذف أي سجلات قديمة.`)) return;
+            document.getElementById('datePicker').value=nextDate;
+            attendance={};
+            document.getElementById('sessionEndedMsg').classList.remove('show');
+            await loadAttendanceForDate(nextDate);
+            updateAttendanceSessionUI();
+            showToast(`📅 تم الانتقال إلى يوم ${arabicDateFromISO(nextDate)} — افتح الجلسة لتسجيل الحضور.`);
         }
 
         function showToast(msg) {
@@ -1093,7 +1702,88 @@
             });
         }
 
+        // ===== بيانات اختبار التقارير التاريخية =====
+        async function createReportTestData(){
+            if(!isSchoolAdmin()){ alert('⛔ بيانات اختبار التقارير متاحة لمدير المدرسة فقط.'); return; }
+            if(!currentSchool || !currentUser){ alert('يجب تسجيل الدخول أولاً.'); return; }
+            if(!confirm('سيتم إنشاء طلاب اختبار وسجلات حضور/غياب لآخر 30 يومًا داخل مدرستك. هل تريد المتابعة؟')) return;
+            const statusEl=document.getElementById('testDataStatus');
+            statusEl.textContent='⏳ جاري إنشاء بيانات الاختبار...';
+            try{
+                const prefix='TEST_REPORT_';
+                const {data:existing,error:exErr}=await supabaseClient.from('students').select('id,student_code,student_name,national_id,grade,class_name').eq('school_id',currentSchool.id);
+                if(exErr) throw exErr;
+                const testExisting=(existing||[]).filter(s => String(s.student_code||'').startsWith(prefix));
+                let testStudents=testExisting;
+                if(testStudents.length<10){
+                    const rows=[];
+                    for(let i=testStudents.length+1;i<=10;i++){
+                        rows.push({school_id:currentSchool.id,student_code:prefix+i,national_id:'9999999999'+String(i).padStart(4,'0'),student_name:'طالب اختبار التقارير '+i,grade:i<=4?'الأول':(i<=7?'الثانى':'الثالث'),class_name:String(((i-1)%7)+1),gender:i%2?'ذكر':'أنثى',extra_data:{report_test:true}});
+                    }
+                    if(rows.length){
+                        const {data:ins,error}=await supabaseClient.from('students').insert(rows).select('id,student_code,student_name,national_id,grade,class_name');
+                        if(error) throw error;
+                        testStudents=testStudents.concat(ins||[]);
+                    }
+                }
+                // حذف سجلات الاختبار القديمة ثم إعادة بنائها بشكل ثابت.
+                const {error:delErr}=await supabaseClient.from('attendance').delete().eq('school_id',currentSchool.id).in('student_id',testStudents.map(s=>s.id));
+                if(delErr) throw delErr;
+                const rows=[];
+                const today=new Date(); today.setHours(12,0,0,0);
+                for(let d=1;d<=30;d++){
+                    const dt=new Date(today); dt.setDate(today.getDate()-d);
+                    const date=dt.toISOString().slice(0,10);
+                    testStudents.forEach((st,idx)=>{
+                        // نمط ثابت: كل طالب له عدد غياب مختلف لاختبار شرط "عدد أيام الغياب".
+                        const absent = ((d + idx*3) % (idx+3) === 0) || (idx===9 && d%2===0);
+                        rows.push({school_id:currentSchool.id,student_id:st.id,attendance_date:date,status:absent?'absent':'present',recorded_by:currentUser.id});
+                    });
+                }
+                for(let i=0;i<rows.length;i+=500){
+                    const {error}=await supabaseClient.from('attendance').insert(rows.slice(i,i+500));
+                    if(error) throw error;
+                }
+                // إعادة تحميل طلاب المدرسة حتى يظهروا فورًا في الواجهة.
+                await loadData();
+                statusEl.textContent='✅ تم إنشاء 10 طلاب اختبار و300 سجل لآخر 30 يومًا. يمكنك الآن اختبار التقارير.';
+                showToast('🧪 بيانات الاختبار جاهزة');
+            }catch(e){
+                console.error(e);
+                statusEl.textContent='❌ فشل إنشاء بيانات الاختبار: '+(e.message||e);
+                alert('تعذر إنشاء بيانات الاختبار. راجع رسالة الخطأ.');
+            }
+        }
+
+        async function deleteReportTestData(){
+            if(!isSchoolAdmin()){ alert('⛔ حذف بيانات الاختبار متاح لمدير المدرسة فقط.'); return; }
+            if(!currentSchool || !currentUser){ alert('يجب تسجيل الدخول أولاً.'); return; }
+            if(!confirm('سيتم حذف طلاب الاختبار وسجلاتهم فقط، ولن يتم حذف أي طالب حقيقي. هل أنت متأكد؟')) return;
+            const statusEl=document.getElementById('testDataStatus');
+            statusEl.textContent='⏳ جاري حذف بيانات الاختبار...';
+            try{
+                const {data:testStudents,error:selErr}=await supabaseClient.from('students').select('id').eq('school_id',currentSchool.id).like('student_code','TEST_REPORT_%');
+                if(selErr) throw selErr;
+                const ids=(testStudents||[]).map(x=>x.id);
+                if(ids.length){
+                    const {error:aErr}=await supabaseClient.from('attendance').delete().eq('school_id',currentSchool.id).in('student_id',ids);
+                    if(aErr) throw aErr;
+                    const {error:sErr}=await supabaseClient.from('students').delete().eq('school_id',currentSchool.id).in('id',ids);
+                    if(sErr) throw sErr;
+                }
+                await loadData();
+                statusEl.textContent='✅ تم حذف بيانات الاختبار فقط.';
+                showToast('🗑️ تم حذف بيانات الاختبار');
+            }catch(e){
+                console.error(e);
+                statusEl.textContent='❌ فشل حذف بيانات الاختبار: '+(e.message||e);
+            }
+        }
+
         function toggleCamera() {
+            if(!isSchoolAdmin() && !isAbsenceOfficer()){ alert('⛔ حساب شؤون الطلبة لا يملك صلاحية تشغيل كاميرا الحضور.'); return; }
+            const date=document.getElementById('datePicker').value;
+            if(!isSchoolAdmin() && !isSessionOpen(date)){ alert('⛔ لا توجد جلسة حضور مفتوحة لهذا اليوم. افتح اليوم أولًا.'); updateAttendanceSessionUI(); return; }
             const readerDiv = document.getElementById('reader');
             const btn = document.getElementById('camToggleBtn');
 
@@ -1103,7 +1793,7 @@
                 html5QrCode.start(
                     { facingMode: "environment" },
                     { fps: 10, qrbox: { width: 250, height: 250 } },
-                    (decodedText) => {
+                    async (decodedText) => {
                         let cleanText = decodedText.trim();
                         let now = Date.now();
 
@@ -1117,8 +1807,7 @@
 
                         if (student) {
                             let already = attendance[student.id] === 'present';
-                            attendance[student.id] = 'present';
-                            saveData();
+                            await setStatus(student.id, 'present');
 
                             const resBox = document.getElementById('scanResult');
                             resBox.className = 'scan-result show ' + (already ? 'already' : '');
@@ -1152,13 +1841,276 @@
             }
         }
 
+
+        // ===== التقارير المتقدمة =====
+        let currentReport = {title:'', start:'', end:'', html:'', text:'', rows:[]};
+        function todayISO(){ return new Date().toISOString().slice(0,10); }
+        function addDaysISO(dateStr, days){ const d=new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+        function monthBounds(month){ const [y,m]=month.split('-').map(Number); const start=`${y}-${String(m).padStart(2,'0')}-01`; const end=new Date(y,m,0).toISOString().slice(0,10); return {start,end}; }
+        function fmtDate(d){ return d ? new Date(d+'T12:00:00').toLocaleDateString('ar-EG') : ''; }
+        function studentLabel(s){ return `${s.name || s.student_name || ''} | ${s.id || s.national_id || ''}`; }
+        async function fetchAttendanceRange(start,end){
+            const {data,error}=await supabaseClient.from('attendance').select('id,student_id,attendance_date,status,recorded_by').eq('school_id',currentSchool.id).gte('attendance_date',start).lte('attendance_date',end).order('attendance_date',{ascending:true});
+            if(error) throw error;
+            return data||[];
+        }
+        function setReportResult(title,html,rows,text,start,end){
+            rows=Array.isArray(rows)?rows:[];
+            if(!rows.length){
+                html += '<div style=\"padding:15px;text-align:center;color:#991b1b;font-weight:bold\">⚠️ لا توجد بيانات لهذا التقرير في الفترة المحددة.</div>';
+            }
+            currentReport={title,start,end,html,text,rows};
+            document.getElementById('reportResult').innerHTML=html;
+            document.getElementById('reportResult').style.display='block';
+            document.getElementById('reportActions').style.display='flex';
+        }
+        function reportShell(title,start,end,summary,body){
+            return `<div id="printableReport" dir="rtl"><h2 style="text-align:center">${escapeReportHtml(schoolSettings.schoolName||'اسم المدرسة')}</h2><h3 style="text-align:center">${escapeReportHtml(title)}</h3><div style="text-align:center;line-height:1.8">من ${fmtDate(start)} إلى ${fmtDate(end)}</div>${summary||''}${body}</div>`;
+        }
+        async function runDailyReport(){
+            if(!currentSchool) return;
+            const date=document.getElementById('dailyReportDate').value||todayISO();
+            try{
+                const records=await fetchAttendanceRange(date,date);
+                const map=new Map(); records.forEach(r=>map.set(r.student_id,r.status));
+                const rows=students.map(s=>({name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,status:map.get(s.dbId)==='present'?'حاضر':'غائب'}));
+                const presentCount=rows.filter(r=>r.status==='حاضر').length, absentCount=rows.length-presentCount;
+                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>';
+                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.status}</td></tr>`);
+                body+='</table>';
+                const summary=`<div class="report-summary"><div class="report-stat">إجمالي: ${rows.length}</div><div class="report-stat">حاضر: ${presentCount}</div><div class="report-stat">غائب: ${absentCount}</div><div class="report-stat">نسبة الحضور: ${rows.length?Math.round(presentCount/rows.length*100):0}%</div></div>`;
+                const text=reportHeader('📅 التقرير اليومي')+`التاريخ: ${fmtDate(date)}\\nإجمالي: ${rows.length} | حاضر: ${presentCount} | غائب: ${absentCount} | نسبة الحضور: ${rows.length?Math.round(presentCount/rows.length*100):0}%\\n\\n`+rows.filter(r=>r.status==='غائب').map((r,i)=>`${i+1}. ${r.name} - ${r.grade} - فصل ${r.classNum}`).join('\\n');
+                setReportResult('التقرير اليومي',reportShell('التقرير اليومي',date,date,summary,body),rows,text,date,date);
+            }catch(e){alert('تعذر تحميل التقرير اليومي: '+e.message);}
+        }
+        async function runRangeStudentReport(start,end,title){
+            if(!start||!end){alert('اختر التاريخ من وإلى.');return;}
+            if(start>end){alert('تاريخ البداية يجب أن يكون قبل تاريخ النهاية.');return;}
+            const q=document.getElementById('studentReportSearch').value.trim();
+            if(!q){alert('اكتب اسم الطالب أو الرقم القومي أو كود الطالب.');return;}
+            try{
+                const matches=students.filter(s=>[s.name,s.id,s.studentCode,s.national_id].some(v=>String(v||'').toLowerCase().includes(q.toLowerCase())));
+                if(!matches.length){alert('لم يتم العثور على الطالب.');return;}
+                const records=await fetchAttendanceRange(start,end);
+                let rows=[]; let text=reportHeader('🔎 استعلام غياب طالب')+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\\n\\n`;
+                matches.forEach(s=>{
+                    const dates=[...new Set(records.filter(r=>r.student_id===s.dbId && r.status==='absent').map(r=>r.attendance_date))];
+                    rows.push({name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,absentDays:dates.length,dates});
+                    text+=`الطالب: ${s.name}\\nالصف: ${s.grade} | الفصل: ${s.classNum}\\nعدد أيام الغياب: ${dates.length}\\nأيام الغياب: ${dates.map(fmtDate).join('، ')||'لا يوجد'}\\n\\n`;
+                });
+                let body='<table><tr><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الغياب</th><th>تواريخ الغياب</th></tr>';
+                rows.forEach(r=>body+=`<tr><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.absentDays}</td><td>${r.dates.map(fmtDate).join('، ')||'لا يوجد'}</td></tr>`);
+                body+='</table>';
+                setReportResult(title,reportShell(title,start,end,'',body),rows,text,start,end);
+            }catch(e){alert('تعذر تحميل الاستعلام: '+e.message);}
+        }
+        async function runStudentAbsenceReport(){
+            const start=document.getElementById('studentReportStart').value||addDaysISO(todayISO(),-30);
+            const end=document.getElementById('studentReportEnd').value||todayISO();
+            await runRangeStudentReport(start,end,'🔎 استعلام عن غياب طالب');
+        }
+        async function runWeeklyReport(){
+            const start=document.getElementById('weeklyReportStart').value||addDaysISO(todayISO(),-6), end=addDaysISO(start,6);
+            await runPeriodAbsenceReport('📆 التقرير الأسبوعي',start,end);
+        }
+        async function runMonthlyReport(){
+            const month=document.getElementById('monthlyReportMonth').value||todayISO().slice(0,7);
+            const {start,end}=monthBounds(month); await runPeriodAbsenceReport('🗓️ التقرير الشهري',start,end);
+        }
+        async function runPeriodAbsenceReport(title,start,end){
+            try{
+                const records=await fetchAttendanceRange(start,end);
+                const byStudent=new Map();
+                records.forEach(r=>{ if(!byStudent.has(r.student_id)) byStudent.set(r.student_id,{absent:new Set(),present:new Set()}); const x=byStudent.get(r.student_id); (r.status==='present'?x.present:x.absent).add(r.attendance_date); });
+                const rows=students.map(s=>{const x=byStudent.get(s.dbId)||{absent:new Set(),present:new Set()};return {name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,absentDays:x.absent.size,presentDays:x.present.size,dates:[...x.absent].sort()};});
+                const total=rows.length, absentTotal=rows.reduce((a,r)=>a+r.absentDays,0);
+                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الحضور</th><th>أيام الغياب</th><th>تواريخ الغياب</th></tr>';
+                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.presentDays}</td><td>${r.absentDays}</td><td>${r.dates.map(fmtDate).join('، ')||'لا يوجد'}</td></tr>`); body+='</table>';
+                const summary=`<div class="report-summary"><div class="report-stat">عدد الطلاب: ${total}</div><div class="report-stat">إجمالي حالات الغياب: ${absentTotal}</div></div>`;
+                const text=reportHeader(title)+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\\nعدد الطلاب: ${total}\\nإجمالي حالات الغياب: ${absentTotal}\\n\\n`+rows.filter(r=>r.absentDays>0).map(r=>`${r.name}: ${r.absentDays} يوم — ${r.dates.map(fmtDate).join('، ')}`).join('\\n');
+                setReportResult(title,reportShell(title,start,end,summary,body),rows,text,start,end);
+            }catch(e){alert('تعذر تحميل التقرير: '+e.message);}
+        }
+        async function runMinAbsenceReport(){
+            const n=Math.max(1,Number(document.getElementById('minAbsentDays').value)||1);
+            const start=document.getElementById('minAbsentStart').value||addDaysISO(todayISO(),-30), end=document.getElementById('minAbsentEnd').value||todayISO();
+            if(start>end){alert('تاريخ البداية يجب أن يكون قبل تاريخ النهاية.');return;}
+            try{
+                const records=await fetchAttendanceRange(start,end);
+                const rows=students.map(s=>{const dates=[...new Set(records.filter(r=>r.student_id===s.dbId&&r.status==='absent').map(r=>r.attendance_date))].sort();return{name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,absentDays:dates.length,dates};}).filter(r=>r.absentDays>=n);
+                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الغياب</th><th>التواريخ</th></tr>';
+                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.absentDays}</td><td>${r.dates.map(fmtDate).join('، ')}</td></tr>`); body+='</table>';
+                const summary=`<div class="report-summary"><div class="report-stat">الحد الأدنى: ${n} أيام</div><div class="report-stat">عدد الطلاب: ${rows.length}</div></div>`;
+                const text=reportHeader('🔢 الطلاب الغائبون عدد أيام فأكثر')+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\\nالحد الأدنى: ${n} أيام\\nعدد الطلاب: ${rows.length}\\n\\n`+rows.map((r,i)=>`${i+1}. ${r.name}: ${r.absentDays} يوم`).join('\\n');
+                setReportResult('الطلاب الغائبون عدد أيام فأكثر',reportShell('الطلاب الغائبون عدد أيام فأكثر',start,end,summary,body),rows,text,start,end);
+            }catch(e){alert('تعذر تحميل التقرير: '+e.message);}
+        }
+        function getReportClassGroups(){
+            const groups={};
+            (currentReport.rows||[]).forEach(r=>{
+                const key=String(r.classNum==null||r.classNum===''?'غير محدد':r.classNum);
+                if(!groups[key]) groups[key]=[];
+                groups[key].push(r);
+            });
+            return Object.keys(groups).sort((a,b)=>{
+                const na=parseInt(a), nb=parseInt(b);
+                if(Number.isFinite(na)&&Number.isFinite(nb)) return na-nb;
+                if(Number.isFinite(na)) return -1;
+                if(Number.isFinite(nb)) return 1;
+                return a.localeCompare(b,'ar');
+            }).map(k=>({classNum:k,rows:groups[k]}));
+        }
+        function reportRowsTable(rows){
+            if(!rows.length) return '<div style="padding:12px;text-align:center;color:#64748b">لا توجد بيانات في هذا الفصل.</div>';
+            const hasStatus=rows.some(r=>r.status!=null && r.status!=='');
+            let h='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th>';
+            if(hasStatus) h+='<th>الحالة</th>';
+            if(rows.some(r=>r.presentDays!=null)) h+='<th>أيام الحضور</th>';
+            if(rows.some(r=>r.absentDays!=null)) h+='<th>أيام الغياب</th>';
+            if(rows.some(r=>r.dates!=null)) h+='<th>تواريخ الغياب</th>';
+            h+='</tr>';
+            rows.forEach((r,i)=>{
+                h+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td>`;
+                if(hasStatus) h+=`<td>${escapeReportHtml(r.status||'')}</td>`;
+                if(rows.some(x=>x.presentDays!=null)) h+=`<td>${r.presentDays??''}</td>`;
+                if(rows.some(x=>x.absentDays!=null)) h+=`<td>${r.absentDays??''}</td>`;
+                if(rows.some(x=>x.dates!=null)) h+=`<td>${(r.dates||[]).map(fmtDate).join('، ')||'لا يوجد'}</td>`;
+                h+='</tr>';
+            });
+            return h+'</table>';
+        }
+        function excelSchoolPreamble(title){
+            const rows=[
+                [schoolSettings.schoolName||'اسم المدرسة'],
+                ...(schoolSettings.educationAdmin?[[`الإدارة التعليمية: ${schoolSettings.educationAdmin}`]]:[]),
+                ...(schoolSettings.schoolStage?[[`المرحلة التعليمية: ${schoolSettings.schoolStage}`]]:[]),
+                ...(schoolSettings.schoolYear?[[`العام الدراسي: ${schoolSettings.schoolYear}`]]:[]),
+                ...(schoolSettings.schoolManager?[[`مدير المدرسة: ${schoolSettings.schoolManager}`]]:[]),
+                ...(schoolSettings.studentAffairsOfficer?[[`مسؤول شئون الطلبة: ${schoolSettings.studentAffairsOfficer}`]]:[]),
+                [title],
+                []
+            ];
+            return rows;
+        }
+        function pdfFooterHtml(){
+            const manager=schoolSettings.schoolManager?`<span>مدير المدرسة: ${escapeReportHtml(schoolSettings.schoolManager)}</span>`:'';
+            const affairs=schoolSettings.studentAffairsOfficer?`<span>مسؤول شئون الطلبة: ${escapeReportHtml(schoolSettings.studentAffairsOfficer)}</span>`:'';
+            return `<div class="pdf-footer">${manager}${manager&&affairs?' &nbsp;&nbsp; | &nbsp;&nbsp; ':''}${affairs}</div>`;
+        }
+
+        function classReportSummary(rows){
+            const total=rows.length;
+            if(rows.some(r=>r.status!=null)){
+                const present=rows.filter(r=>r.status==='حاضر').length;
+                const absent=total-present;
+                return `<div class="report-summary"><div class="report-stat">إجمالي الطلاب: ${total}</div><div class="report-stat">حاضر: ${present}</div><div class="report-stat">غائب: ${absent}</div><div class="report-stat">نسبة الحضور: ${total?Math.round(present/total*100):0}%</div></div>`;
+            }
+            const presentDays=rows.reduce((a,r)=>a+Number(r.presentDays||0),0);
+            const absentDays=rows.reduce((a,r)=>a+Number(r.absentDays||0),0);
+            return `<div class="report-summary"><div class="report-stat">عدد الطلاب: ${total}</div><div class="report-stat">إجمالي أيام الحضور: ${presentDays}</div><div class="report-stat">إجمالي أيام الغياب: ${absentDays}</div></div>`;
+        }
+        function buildFullReportForPrint(){
+            let html=`<div id="printableReport" dir="rtl">`;
+            html+=`<h2 style="text-align:center">${escapeReportHtml(schoolSettings.schoolName||'اسم المدرسة')}</h2>`;
+            html+=`<h3 style="text-align:center">${escapeReportHtml(currentReport.title)}</h3>`;
+            html+=`<div style="text-align:center;line-height:1.8">من ${fmtDate(currentReport.start)} إلى ${fmtDate(currentReport.end)}</div>`;
+            html+=currentReport.html.replace(/<div id="printableReport"[^>]*>|<\/div>\s*$/,'');
+            const groups=getReportClassGroups();
+            groups.forEach(g=>{
+                html+=`<div class="class-page"><h2>الفصل ${escapeReportHtml(g.classNum)}</h2>${classReportSummary(g.rows)}${reportRowsTable(g.rows)}</div>`;
+            });
+            html+=pdfFooterHtml();
+            html+='</div>';
+            return html;
+        }
+        function printCurrentReport(){
+            if(!currentReport.html){return;}
+            const w=window.open('','_blank'); if(!w){alert('اسمح بالنوافذ المنبثقة للطباعة.');return;}
+            const full=buildFullReportForPrint();
+            w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeReportHtml(currentReport.title)}</title><style>@page{size:A4;margin:12mm 12mm 22mm}body{font-family:Tahoma,Arial,sans-serif;direction:rtl;color:#111;padding-bottom:18mm}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #777;padding:5px;text-align:center}th{background:#e5e7eb}.report-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}.report-stat{padding:6px 10px;border:1px solid #ddd}.class-page{page-break-before:always}.pdf-footer{position:fixed;bottom:-15mm;left:0;right:0;text-align:center;font-size:10px;border-top:1px solid #999;padding-top:4px;background:#fff}</style></head><body>${full}<script>window.onload=function(){window.print();}<\/script></body></html>`); w.document.close();
+        }
+        async function pdfCurrentReport(){
+            if(!currentReport.html){alert('لا يوجد تقرير جاهز لإنشاء PDF.');return;}
+            // PDF شامل: التقرير الكامل أولاً، ثم صفحة مستقلة لكل فصل.
+            const w=window.open('','_blank');
+            if(!w){alert('المتصفح منع نافذة التقرير. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return;}
+            const full=buildFullReportForPrint();
+            const filename=`${(schoolSettings.schoolName||'تقرير').replace(/[^\u0600-\u06FF\w\s-]/g,'')}_${(currentReport.title||'تقرير').replace(/[^\u0600-\u06FF\w\s-]/g,'')}`;
+            w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeReportHtml(filename)}</title><style>@page{size:A4;margin:12mm 12mm 22mm}*{box-sizing:border-box}body{font-family:Tahoma,"Segoe UI",Arial,sans-serif;direction:rtl;color:#111;background:#fff;margin:0;padding-bottom:18mm;font-size:12px}h2,h3{text-align:center;margin:7px 0}.report-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}.report-stat{padding:6px 10px;border:1px solid #bbb;border-radius:5px;font-weight:bold}table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px;page-break-inside:auto}tr{page-break-inside:avoid}th,td{border:1px solid #555;padding:5px;text-align:center;vertical-align:middle}th{background:#e5e7eb}.class-page{page-break-before:always}.pdf-footer{position:fixed;bottom:-15mm;left:0;right:0;text-align:center;font-size:10px;border-top:1px solid #999;padding-top:4px;background:#fff}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${full}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
+            w.document.close();
+            showToast('📑 تم تجهيز PDF شامل: التقرير العام + كشف مستقل لكل فصل. اختر «حفظ كـ PDF».');
+        }
+        function excelCurrentReport(){
+            if(!currentReport.rows.length){alert('لا توجد بيانات للتصدير.');return;}
+            const wb=XLSX.utils.book_new();
+            const makeRows=(rows)=>rows.map((r,i)=>({
+                'م':i+1,'اسم الطالب':r.name,'الرقم القومي':r.id,'الصف':r.grade,'الفصل':r.classNum,
+                'الحالة':r.status??'', 'أيام الحضور':r.presentDays??'', 'أيام الغياب':r.absentDays??'',
+                'تواريخ الغياب':(r.dates||[]).map(fmtDate).join('، ')
+            }));
+            const allRows=makeRows(currentReport.rows);
+            const wsData=excelSchoolPreamble(`📊 ${currentReport.title}`);
+            wsData.push(['الفترة',`${fmtDate(currentReport.start)} إلى ${fmtDate(currentReport.end)}`],[]);
+            if(currentReport.rows.some(r=>r.status!=null)){
+                const total=allRows.length, present=allRows.filter(r=>r['الحالة']==='حاضر').length;
+                wsData.push(['الإحصائية العامة','العدد','النسبة'],['إجمالي الطلاب',total,'100%'],['الحاضرون',present,total?Math.round(present/total*100)+'%':'0%'],['الغائبون',total-present,total?Math.round((total-present)/total*100)+'%':'0%'],[]);
+            }
+            wsData.push(['كشف الطلاب بالكامل']);
+            wsData.push(['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة','أيام الحضور','أيام الغياب','تواريخ الغياب']);
+            allRows.forEach(r=>wsData.push([r['م'],r['اسم الطالب'],r['الرقم القومي'],r['الصف'],r['الفصل'],r['الحالة'],r['أيام الحضور'],r['أيام الغياب'],r['تواريخ الغياب']]));
+            const ws=XLSX.utils.aoa_to_sheet(wsData);
+            ws['!dir']='rtl'; ws['!cols']=[{wch:6},{wch:34},{wch:20},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14},{wch:45}];
+            XLSX.utils.book_append_sheet(wb,ws,'التقرير الشامل');
+            getReportClassGroups().forEach(g=>{
+                const cr=makeRows(g.rows);
+                const d=excelSchoolPreamble(`📚 ${currentReport.title} — الفصل ${g.classNum}`);
+                d.push(['الفترة',`${fmtDate(currentReport.start)} إلى ${fmtDate(currentReport.end)}`],[]);
+                d.push(['إحصائية الفصل'],['البيان','العدد']);
+                if(cr.length){
+                    if(g.rows.some(r=>r.status!=null)){
+                        const p=cr.filter(r=>r['الحالة']==='حاضر').length; d.push(['إجمالي الطلاب',cr.length],['الحاضرون',p],['الغائبون',cr.length-p],['نسبة الحضور',cr.length?Math.round(p/cr.length*100)+'%':'0%'],[]);
+                    }else{
+                        d.push(['إجمالي الطلاب',cr.length],['إجمالي أيام الحضور',g.rows.reduce((a,r)=>a+Number(r.presentDays||0),0)],['إجمالي أيام الغياب',g.rows.reduce((a,r)=>a+Number(r.absentDays||0),0)],[]);
+                    }
+                }
+                d.push(['كشف الطلاب'],['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة','أيام الحضور','أيام الغياب','تواريخ الغياب']);
+                cr.forEach(r=>d.push([r['م'],r['اسم الطالب'],r['الرقم القومي'],r['الصف'],r['الفصل'],r['الحالة'],r['أيام الحضور'],r['أيام الغياب'],r['تواريخ الغياب']]));
+                const cw=XLSX.utils.aoa_to_sheet(d);
+                cw['!dir']='rtl'; cw['!cols']=ws['!cols'];
+                let sheetName=`الفصل ${g.classNum}`.replace(/[\\\/?*\[\]:]/g,'').slice(0,31);
+                if(wb.SheetNames.includes(sheetName)) sheetName=(sheetName.slice(0,28)+'...').slice(0,31);
+                XLSX.utils.book_append_sheet(wb,cw,sheetName);
+            });
+            const datePart=currentReport.start===currentReport.end?currentReport.start:`${currentReport.start}_${currentReport.end}`;
+            XLSX.writeFile(wb,`تقرير_${currentReport.title.replace(/[^\u0600-\u06FF\w\s-]/g,'')}_${datePart}.xlsx`);
+            showToast('📊 تم حفظ Excel بالدباجة + التقرير الشامل + شيت مستقل لكل فصل.');
+        }
+        function whatsappCurrentReport(){
+            if(!currentReport.text)return; whatsappReport(currentReport.text);
+        }
+        // تهيئة تواريخ التقارير
+        (function initReportDates(){
+            const t=todayISO(); const week=addDaysISO(t,-6); const month=t.slice(0,7);
+            const ids={dailyReportDate:t,studentReportStart:week,studentReportEnd:t,weeklyReportStart:week,monthlyReportMonth:month,minAbsentStart:addDaysISO(t,-30),minAbsentEnd:t};
+            Object.entries(ids).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val;});
+        })();
         document.getElementById('classFilter').addEventListener('change', renderStudentsList);
         document.getElementById('statusFilter').addEventListener('change', renderStudentsList);
         document.getElementById('gradeFilter').addEventListener('change', renderStudentsList);
+        document.getElementById('datePicker').addEventListener('change', async function(){ updateAttendanceSessionUI(); if(currentUser) await loadAttendanceForDate(this.value); });
+        document.getElementById('loginPassword').addEventListener('keydown', function(e){if(e.key==='Enter') loginSchool();});
+        updateLoginRoleHint();
 
-        loadSchoolSettings();
-        loadData();
-        saveData();
+        async function initApp(){
+            showLogin(true);
+            updateAttendanceSessionUI();
+            const {data}=await supabaseClient.auth.getSession();
+            if(data && data.session && data.session.user){
+                try{ currentUser=data.session.user; await loadCloudSchool(); showLogin(false); await loadData(); loadSchoolSettings(); saveData(); }
+                catch(e){ await supabaseClient.auth.signOut(); currentUser=null; currentSchool=null; showLogin(true); }
+            }
+        }
+        initApp();
     </script>
 </body>
 </html>
