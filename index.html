@@ -1607,93 +1607,70 @@
         }
 
         // تصدير تقرير PDF يومي شامل وفصول منفصلة
-        function exportDailyPDF() {
-            if (students.length === 0) {
-                showToast('⚠️ لا توجد بيانات للطباعة!');
-                return;
-            }
-
-            const total = students.length;
-            const present = students.filter(s => attendance[s.id] === 'present').length;
-            const absent = total - present;
-            const percent = total ? Math.round(present/total*100) : 0;
-
-            let h = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-            <title>تقرير الغياب اليومي</title>
-            <style>
-            @page{size:A4;margin:12mm}
-            body{font-family:Tahoma,"Segoe UI",Arial,sans-serif;direction:rtl;color:#111}
-            h1,h2{text-align:center;margin:7px 0}
-            .meta{text-align:center;line-height:1.8;margin-bottom:10px}
-            table{width:100%;border-collapse:collapse;margin:10px 0 18px;font-size:11px}
-            th,td{border:1px solid #777;padding:5px;text-align:right}
-            th{background:#e5e7eb}
-            .summary td{text-align:center;font-weight:bold}
-            .break{page-break-before:always}
-            </style></head><body>`;
-
+        function reportSchoolHeaderHtml(title, startDate, endDate){
+            let h = `<div class="report-header">`;
             h += `<h1>${escapeReportHtml(schoolSettings.schoolName || 'اسم المدرسة')}</h1>`;
-            h += `<h2>📑 تقرير الغياب اليومي الشامل</h2>`;
-            h += `<div class="meta">التاريخ: ${escapeReportHtml(arabicReportDate())}`;
-            if (schoolSettings.educationAdmin) h += `<br>الإدارة التعليمية: ${escapeReportHtml(schoolSettings.educationAdmin)}`;
-            if (schoolSettings.schoolStage) h += `<br>المرحلة التعليمية: ${escapeReportHtml(schoolSettings.schoolStage)}`;
-            if (schoolSettings.schoolYear) h += `<br>العام الدراسي: ${escapeReportHtml(schoolSettings.schoolYear)}`;
+            if (schoolSettings.educationAdmin) h += `<div>الإدارة التعليمية: ${escapeReportHtml(schoolSettings.educationAdmin)}</div>`;
+            if (schoolSettings.schoolStage) h += `<div>المرحلة التعليمية: ${escapeReportHtml(schoolSettings.schoolStage)}</div>`;
+            if (schoolSettings.schoolYear) h += `<div>العام الدراسي: ${escapeReportHtml(schoolSettings.schoolYear)}</div>`;
+            h += `<h2>${escapeReportHtml(title)}</h2>`;
+            if(startDate) h += `<div>الفترة: ${fmtDate(startDate)}${endDate && endDate!==startDate ? ` إلى ${fmtDate(endDate)}` : ''}</div>`;
             h += `</div>`;
+            return h;
+        }
 
-            h += `<h2>الإحصائية العامة للمدرسة</h2>
-            <table class="summary"><tr><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>
-            <tr><td>${total}</td><td>${present}</td><td>${absent}</td><td>${percent}%</td></tr></table>`;
+        function reportSignaturesHtml(){
+            const manager=escapeReportHtml(schoolSettings.schoolManager || '................................');
+            const affairs=escapeReportHtml(schoolSettings.studentAffairsOfficer || '................................');
+            return `<div class="pdf-page-footer"><div class="sig-left"><b>مدير المدرسة</b><br>${manager}</div><div class="sig-right"><b>مسؤول شئون الطلبة</b><br>${affairs}</div></div>`;
+        }
 
-            h += `<h2>إحصائية الصفوف</h2><table>
-            <tr><th>الصف</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
-            ['الأول','الثانى','الثالث'].forEach(g => {
-                const a=students.filter(s=>s.grade===g), p=a.filter(s=>attendance[s.id]==='present').length;
-                h += `<tr><td>الصف ${escapeReportHtml(g)}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${a.length?Math.round(p/a.length*100):0}%</td></tr>`;
-            });
-            h += `</table>`;
+        function makePdfPage(contentHtml){
+            return `<section class="pdf-page">${contentHtml}${reportSignaturesHtml()}</section>`;
+        }
 
-            h += `<h2>إحصائية الفصول</h2><table>
-            <tr><th>الفصل</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
-            for(let i=1;i<=7;i++){
-                const a=students.filter(s=>s.classNum==i);
-                if(!a.length) continue;
-                const p=a.filter(s=>attendance[s.id]==='present').length;
-                h += `<tr><td>الفصل ${i}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${Math.round(p/a.length*100)}%</td></tr>`;
+        function chunkArray(arr,size){ const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; }
+
+        function buildDailyPdfHtml(){
+            const total=students.length;
+            const present=students.filter(s=>attendance[s.id]==='present').length;
+            const absent=total-present;
+            const percent=total?Math.round(present/total*100):0;
+            const date=document.getElementById('datePicker').value || todayISO();
+            let first=reportSchoolHeaderHtml('📑 تقرير الغياب اليومي الشامل',date,date);
+            first += `<h3>الإحصائية العامة للمدرسة</h3><table class="summary"><tr><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr><tr><td>${total}</td><td>${present}</td><td>${absent}</td><td>${percent}%</td></tr></table>`;
+            first += `<h3>إحصائية الصفوف</h3><table><tr><th>الصف</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
+            ['الأول','الثانى','الثالث'].forEach(g=>{const a=students.filter(s=>s.grade===g),p=a.filter(s=>attendance[s.id]==='present').length;first+=`<tr><td>${escapeReportHtml(g)}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${a.length?Math.round(p/a.length*100):0}%</td></tr>`;});
+            first += `</table><h3>إحصائية الفصول</h3><table><tr><th>الفصل</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
+            for(let i=1;i<=7;i++){const a=students.filter(s=>String(s.classNum)===String(i));if(!a.length)continue;const p=a.filter(s=>attendance[s.id]==='present').length;first+=`<tr><td>الفصل ${i}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${Math.round(p/a.length*100)}%</td></tr>`;}
+            first += `</table>`;
+
+            const pages=[makePdfPage(first)];
+            const absentRows=students.filter(s=>attendance[s.id]!=='present');
+            for(const batch of chunkArray(absentRows,18)){
+                let b=`<h2>كشف الطلاب الغائبين</h2><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th></tr>`;
+                batch.forEach((s,i)=>b+=`<tr><td>${i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${escapeReportHtml(s.classNum)}</td></tr>`);b+='</table>';pages.push(makePdfPage(b));
             }
-            h += `</table>`;
+            const allRows=chunkArray(students,16);
+            allRows.forEach((batch,bi)=>{let b=`<h2>كشف الطلاب بالكامل — صفحة ${bi+1}</h2><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;batch.forEach((s,i)=>b+=`<tr><td>${bi*16+i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${escapeReportHtml(s.classNum)}</td><td>${attendance[s.id]==='present'?'حاضر':'غائب'}</td></tr>`);b+='</table>';pages.push(makePdfPage(b));});
+            for(let i=1;i<=7;i++){const a=students.filter(s=>String(s.classNum)===String(i));if(!a.length)continue;const p=a.filter(s=>attendance[s.id]==='present').length;for(const batch of chunkArray(a,16)){let b=`<h2>الفصل ${i}</h2><div class="report-summary"><span class="report-stat">إجمالي الطلاب: ${a.length}</span><span class="report-stat">حاضر: ${p}</span><span class="report-stat">غائب: ${a.length-p}</span><span class="report-stat">نسبة الحضور: ${Math.round(p/a.length*100)}%</span></div><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;batch.forEach((s,j)=>b+=`<tr><td>${a.indexOf(s)+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${escapeReportHtml(s.classNum)}</td><td>${attendance[s.id]==='present'?'حاضر':'غائب'}</td></tr>`);b+='</table>';pages.push(makePdfPage(b));}}
+            return pages.join('');
+        }
 
-            h += `<h2 class="break">كشف الطلاب الغائبين</h2><table>
-            <tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th></tr>`;
-            students.filter(s=>attendance[s.id]!=='present').forEach((s,i)=>{
-                h += `<tr><td>${i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${s.classNum}</td></tr>`;
-            });
-            h += `</table>`;
+        function openPrintHtml(html,title){
+            const w=window.open('about:blank','_blank');
+            if(!w){showToast('⚠️ المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return false;}
+            const doc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeReportHtml(title||'تقرير الغياب')}</title><style>
+                @page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Tahoma,"Segoe UI",Arial,sans-serif}body{direction:rtl}.pdf-page{position:relative;width:210mm;min-height:297mm;height:297mm;padding:12mm 12mm 24mm;page-break-after:always;overflow:hidden}.pdf-page:last-child{page-break-after:auto}.report-header{text-align:center;line-height:1.65;margin-bottom:8px}.report-header h1{font-size:20px;margin:0 0 2px}.report-header h2{font-size:18px;margin:5px 0}.pdf-page h2,.pdf-page h3{text-align:center;margin:7px 0}.pdf-page table{width:100%;border-collapse:collapse;margin:7px 0;font-size:10.5px}.pdf-page th,.pdf-page td{border:1px solid #555;padding:4px;text-align:center;vertical-align:middle}.pdf-page th{background:#eee}.summary th,.summary td{font-weight:bold}.report-summary{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin:7px 0}.report-stat{border:1px solid #bbb;padding:4px 7px;font-weight:bold}.pdf-page-footer{position:absolute;left:12mm;right:12mm;bottom:8mm;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #444;padding-top:4px;font-size:10px;line-height:1.5}.sig-left{text-align:left;width:42%}.sig-right{text-align:right;width:42%}@media print{.pdf-page{break-after:page}.pdf-page:last-child{break-after:auto}}
+            </style></head><body>${html}<script>setTimeout(function(){window.focus();window.print();},300);<\/script></body></html>`;
+            w.document.open();w.document.write(doc);w.document.close();
+            return true;
+        }
 
-            h += `<h2 class="break">كشف الطلاب بالكامل</h2><table>
-            <tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;
-            students.forEach((s,i)=>{
-                h += `<tr><td>${i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${s.classNum}</td><td>${attendance[s.id]==='present'?'حاضر':'غائب'}</td></tr>`;
-            });
-            h += `</table><scr` + `ipt>window.onload=function(){window.print();};<` + `/script></body></html>`;
-
-            const win = window.open('', '_blank');
-            if (!win) {
-                showToast('⚠️ المتصفح منع نافذة التقرير. اسمح بالنوافذ المنبثقة.');
-                return;
-            }
-            win.document.write(h);
-            win.document.close();
-
-            let wa = reportHeader('📑 التقرير اليومي');
-            wa += `إجمالي الطلاب: ${total}\nالحاضرون: ${present}\nالغائبون: ${absent}\nنسبة الحضور: ${percent}%\n\n📚 إحصائية الفصول:\n`;
-            for(let i=1;i<=7;i++){
-                const a=students.filter(s=>s.classNum==i);
-                if(!a.length) continue;
-                const p=a.filter(s=>attendance[s.id]==='present').length;
-                wa += `الفصل ${i}: إجمالي ${a.length} | حاضر ${p} | غائب ${a.length-p} | نسبة الحضور ${Math.round(p/a.length*100)}%\n`;
-            }
-            setTimeout(() => whatsappReport(wa), 800);
-            showToast('📑 تم فتح التقرير العربي للطباعة وسيتم فتح واتساب بالملخص');
+        function exportDailyPDF(){
+            if(!students.length){showToast('⚠️ لا توجد بيانات للطباعة!');return;}
+            const html=buildDailyPdfHtml();
+            if(openPrintHtml(html,'تقرير الغياب اليومي الشامل')) showToast('📑 تم تجهيز التقرير الشامل للطباعة والحفظ كـ PDF.');
         }
 
         function escapeReportHtml(value) {
@@ -2081,36 +2058,42 @@
             return `<div class="report-summary"><div class="report-stat">عدد الطلاب: ${total}</div><div class="report-stat">إجمالي أيام الحضور: ${presentDays}</div><div class="report-stat">إجمالي أيام الغياب: ${absentDays}</div></div>`;
         }
         function buildFullReportForPrint(){
-            let html=`<div id="printableReport" dir="rtl">`;
-            html+=`<h2 style="text-align:center">${escapeReportHtml(schoolSettings.schoolName||'اسم المدرسة')}</h2>`;
-            html+=`<h3 style="text-align:center">${escapeReportHtml(currentReport.title)}</h3>`;
-            html+=`<div style="text-align:center;line-height:1.8">من ${fmtDate(currentReport.start)} إلى ${fmtDate(currentReport.end)}</div>`;
-            html+=currentReport.html.replace(/<div id="printableReport"[^>]*>|<\/div>\s*$/,'');
+            if(!currentReport || !currentReport.rows) return '';
+            const pages=[];
+            const firstHeader=reportSchoolHeaderHtml(currentReport.title,currentReport.start,currentReport.end);
+            let first=firstHeader;
+            if(currentReport.html){
+                let stripped=currentReport.html.replace(/^\s*<div id="printableReport"[^>]*>/,'').replace(/<\/div>\s*$/,'');
+                // currentReport.html يأتي من reportShell ويحتوي بالفعل على اسم المدرسة والعنوان والفترة.
+                // نحذف هذه الثلاثة فقط حتى لا تتكرر الدباجة، ونُبقي الإحصاء ومحتوى التقرير.
+                stripped=stripped.replace(/^\s*<h2[^>]*>.*?<\/h2>\s*<h3[^>]*>.*?<\/h3>\s*<div[^>]*>.*?<\/div>\s*/s,'');
+                first+=stripped;
+            }
             const groups=getReportClassGroups();
+            if(groups.length===0){ pages.push(makePdfPage(first)); return pages.join(''); }
+            pages.push(makePdfPage(first));
             groups.forEach(g=>{
-                html+=`<div class="class-page"><h2>الفصل ${escapeReportHtml(g.classNum)}</h2>${classReportSummary(g.rows)}${reportRowsTable(g.rows)}</div>`;
+                const chunks=chunkArray(g.rows,16);
+                chunks.forEach((batch,idx)=>{
+                    let b=`<h2>الفصل ${escapeReportHtml(g.classNum)}${chunks.length>1?` — صفحة ${idx+1}`:''}</h2>${classReportSummary(g.rows)}`;
+                    b+=reportRowsTable(batch);
+                    pages.push(makePdfPage(b));
+                });
             });
-            html+=pdfFooterHtml();
-            html+='</div>';
-            return html;
+            return pages.join('');
         }
         function printCurrentReport(){
-            if(!currentReport.html){return;}
-            const w=window.open('','_blank'); if(!w){alert('اسمح بالنوافذ المنبثقة للطباعة.');return;}
-            const full=buildFullReportForPrint();
-            w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeReportHtml(currentReport.title)}</title><style>@page{size:A4;margin:12mm 12mm 22mm}body{font-family:Tahoma,Arial,sans-serif;direction:rtl;color:#111;padding-bottom:18mm}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #777;padding:5px;text-align:center}th{background:#e5e7eb}.report-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}.report-stat{padding:6px 10px;border:1px solid #ddd}.class-page{page-break-before:always}.pdf-footer{position:fixed;bottom:-15mm;left:0;right:0;text-align:center;font-size:10px;border-top:1px solid #999;padding-top:4px;background:#fff}</style></head><body>${full}<script>window.onload=function(){window.print();}<\/script></body></html>`); w.document.close();
+            if(!currentReport.html){showToast('⚠️ اعرض تقريرًا أولًا.');return;}
+            const html=buildFullReportForPrint();
+            openPrintHtml(html,currentReport.title||'تقرير الغياب');
         }
         async function pdfCurrentReport(){
             if(!currentReport.html){alert('لا يوجد تقرير جاهز لإنشاء PDF.');return;}
-            // PDF شامل: التقرير الكامل أولاً، ثم صفحة مستقلة لكل فصل.
-            const w=window.open('','_blank');
-            if(!w){alert('المتصفح منع نافذة التقرير. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return;}
-            const full=buildFullReportForPrint();
-            const filename=`${(schoolSettings.schoolName||'تقرير').replace(/[^\u0600-\u06FF\w\s-]/g,'')}_${(currentReport.title||'تقرير').replace(/[^\u0600-\u06FF\w\s-]/g,'')}`;
-            w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeReportHtml(filename)}</title><style>@page{size:A4;margin:12mm 12mm 22mm}*{box-sizing:border-box}body{font-family:Tahoma,"Segoe UI",Arial,sans-serif;direction:rtl;color:#111;background:#fff;margin:0;padding-bottom:18mm;font-size:12px}h2,h3{text-align:center;margin:7px 0}.report-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}.report-stat{padding:6px 10px;border:1px solid #bbb;border-radius:5px;font-weight:bold}table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px;page-break-inside:auto}tr{page-break-inside:avoid}th,td{border:1px solid #555;padding:5px;text-align:center;vertical-align:middle}th{background:#e5e7eb}.class-page{page-break-before:always}.pdf-footer{position:fixed;bottom:-15mm;left:0;right:0;text-align:center;font-size:10px;border-top:1px solid #999;padding-top:4px;background:#fff}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${full}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
-            w.document.close();
-            showToast('📑 تم تجهيز PDF شامل: التقرير العام + كشف مستقل لكل فصل. اختر «حفظ كـ PDF».');
+            const html=buildFullReportForPrint();
+            openPrintHtml(html,currentReport.title||'تقرير الغياب');
+            showToast('📑 تم تجهيز التقرير؛ اختر «حفظ كـ PDF» من شاشة الطباعة.');
         }
+
         function excelCurrentReport(){
             if(!currentReport.rows.length){alert('لا توجد بيانات للتصدير.');return;}
             const wb=XLSX.utils.book_new();
