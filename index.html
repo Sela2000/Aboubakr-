@@ -1780,7 +1780,49 @@
             }
         }
 
-        function toggleCamera() {
+        async function getBestCameraId() {
+            if (!window.isSecureContext) {
+                throw new Error('SECURE_CONTEXT: يجب فتح النظام من رابط HTTPS وليس من ملف HTML محلي.');
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('MEDIA_DEVICES_UNAVAILABLE: المتصفح لا يتيح الوصول إلى الكاميرا. استخدم Google Chrome حديثًا.');
+            }
+
+            // نطلب الإذن أولًا. هذا مهم في بعض أجهزة Android/Chrome التي لا تعرض أسماء الكاميرات قبل منح الإذن.
+            let stream = null;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } },
+                    audio: false
+                });
+            } catch (e) {
+                let reason = e && e.name ? e.name : 'UnknownError';
+                if (reason === 'NotAllowedError' || reason === 'PermissionDeniedError') {
+                    throw new Error('CAMERA_PERMISSION: تم رفض إذن الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم حاول مرة أخرى.');
+                }
+                if (reason === 'NotFoundError' || reason === 'DevicesNotFoundError') {
+                    throw new Error('CAMERA_NOT_FOUND: لم يتم العثور على كاميرا متاحة في الجهاز.');
+                }
+                if (reason === 'NotReadableError' || reason === 'TrackStartError') {
+                    throw new Error('CAMERA_BUSY: الكاميرا مستخدمة بواسطة تطبيق أو تبويب آخر. أغلقه ثم حاول مرة أخرى.');
+                }
+                throw new Error('CAMERA_ERROR: '+reason+(e && e.message ? ' - '+e.message : ''));
+            }
+
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(d => d.kind === 'videoinput');
+                if (!cameras.length) throw new Error('CAMERA_NOT_FOUND: لم تظهر أي كاميرا بعد منح الإذن.');
+
+                // الأفضلية للكاميرا الخلفية. إن لم نستطع تمييزها نستخدم أول كاميرا متاحة.
+                const back = cameras.find(d => /back|rear|environment|خلف/i.test(d.label));
+                return (back || cameras[0]).deviceId;
+            } finally {
+                if (stream) stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        async function toggleCamera() {
             if(!isSchoolAdmin() && !isAbsenceOfficer()){ alert('⛔ حساب شؤون الطلبة لا يملك صلاحية تشغيل كاميرا الحضور.'); return; }
             const date=document.getElementById('datePicker').value;
             if(!isSchoolAdmin() && !isSessionOpen(date)){ alert('⛔ لا توجد جلسة حضور مفتوحة لهذا اليوم. افتح اليوم أولًا.'); updateAttendanceSessionUI(); return; }
@@ -1788,59 +1830,88 @@
             const btn = document.getElementById('camToggleBtn');
 
             if (!isCameraRunning) {
+                if (!window.isSecureContext) {
+                    alert('⚠️ الكاميرا تحتاج إلى رابط HTTPS.\n\nافتح النظام من رابط GitHub Pages وليس من ملف HTML محفوظ على الجهاز.');
+                    return;
+                }
+                if (!window.Html5Qrcode) {
+                    alert('❌ مكتبة تشغيل الكاميرا لم يتم تحميلها. تأكد من اتصال الإنترنت ثم أعد تحميل الصفحة.');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerText = '⏳ جاري تشغيل الكاميرا...';
                 readerDiv.classList.add('active');
-                html5QrCode = new Html5Qrcode("reader");
-                html5QrCode.start(
-                    { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    async (decodedText) => {
-                        let cleanText = decodedText.trim();
-                        let now = Date.now();
 
-                        if (cleanText === lastScannedId && (now - lastScanTime < 2000)) {
-                            return;
-                        }
-                        lastScannedId = cleanText;
-                        lastScanTime = now;
+                try {
+                    const cameraId = await getBestCameraId();
+                    html5QrCode = new Html5Qrcode("reader");
+                    await html5QrCode.start(
+                        cameraId,
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        async (decodedText) => {
+                            let cleanText = decodedText.trim();
+                            let now = Date.now();
 
-                        let student = students.find(s => s.id === cleanText || s.name === cleanText || cleanText.includes(s.id));
+                            if (cleanText === lastScannedId && (now - lastScanTime < 2000)) return;
+                            lastScannedId = cleanText;
+                            lastScanTime = now;
 
-                        if (student) {
-                            let already = attendance[student.id] === 'present';
-                            await setStatus(student.id, 'present');
+                            let student = students.find(s => s.id === cleanText || s.name === cleanText || cleanText.includes(s.id));
+                            if (student) {
+                                let already = attendance[student.id] === 'present';
+                                await setStatus(student.id, 'present');
 
-                            const resBox = document.getElementById('scanResult');
-                            resBox.className = 'scan-result show ' + (already ? 'already' : '');
-                            document.getElementById('resName').innerText = student.name;
-                            document.getElementById('resId').innerText = student.id;
-                            document.getElementById('resClass').innerText = `${student.grade} - فصل ${student.classNum}`;
-                            document.getElementById('scanBadge').className = already ? 'already-badge' : 'success-badge';
-                            document.getElementById('scanBadge').innerText = already ? 'مسجل مسبقاً (حاضر بالفعل)' : 'تم تسجيل الحضور بنجاح';
-                        } else {
-                            showToast(`⚠️ الكود (${cleanText}) غير موجود بقاعدة البيانات!`);
-                        }
-                    },
-                    (err) => {}
-                ).then(() => {
+                                const resBox = document.getElementById('scanResult');
+                                resBox.className = 'scan-result show ' + (already ? 'already' : '');
+                                document.getElementById('resName').innerText = student.name;
+                                document.getElementById('resId').innerText = student.id;
+                                document.getElementById('resClass').innerText = `${student.grade} - فصل ${student.classNum}`;
+                                document.getElementById('scanBadge').className = already ? 'already-badge' : 'success-badge';
+                                document.getElementById('scanBadge').innerText = already ? 'مسجل مسبقاً (حاضر بالفعل)' : 'تم تسجيل الحضور بنجاح';
+                            } else {
+                                showToast(`⚠️ الكود (${cleanText}) غير موجود بقاعدة البيانات!`);
+                            }
+                        },
+                        (err) => { /* أخطاء القراءة العادية لا تظهر للمستخدم */ }
+                    );
+
                     isCameraRunning = true;
-                    btn.innerText = "🛑 إيقاف الكاميرا";
-                    btn.className = "btn btn-danger";
-                }).catch(err => {
-                    alert("تعذر تشغيل الكاميرا.");
+                    btn.disabled = false;
+                    btn.innerText = '🛑 إيقاف الكاميرا';
+                    btn.className = 'btn btn-danger';
+                } catch (err) {
+                    console.error('Camera start error:', err);
+                    if (html5QrCode) {
+                        try { await html5QrCode.clear(); } catch(e) {}
+                    }
+                    html5QrCode = null;
+                    isCameraRunning = false;
                     readerDiv.classList.remove('active');
-                });
+                    btn.disabled = false;
+                    btn.innerText = '📷 تشغيل الكاميرا';
+                    btn.className = 'btn btn-primary';
+
+                    const msg = err && err.message ? err.message : String(err);
+                    alert('❌ تعذر تشغيل الكاميرا\n\n' + msg + '\n\nإذا كان السبب إذن الكاميرا، افتح إعدادات الموقع في Chrome واسمح بالكاميرا ثم أعد المحاولة.');
+                }
             } else {
                 if (html5QrCode) {
-                    html5QrCode.stop().then(() => {
-                        readerDiv.classList.remove('active');
-                        isCameraRunning = false;
-                        btn.innerText = "📷 تشغيل الكاميرا";
-                        btn.className = "btn btn-primary";
-                    }).catch(err => { console.log(err); });
+                    try {
+                        await html5QrCode.stop();
+                        try { await html5QrCode.clear(); } catch(e) {}
+                    } catch(err) {
+                        console.error('Camera stop error:', err);
+                    }
                 }
+                html5QrCode = null;
+                readerDiv.classList.remove('active');
+                isCameraRunning = false;
+                btn.disabled = false;
+                btn.innerText = '📷 تشغيل الكاميرا';
+                btn.className = 'btn btn-primary';
             }
         }
-
 
         // ===== التقارير المتقدمة =====
         let currentReport = {title:'', start:'', end:'', html:'', text:'', rows:[]};
