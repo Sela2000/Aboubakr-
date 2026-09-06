@@ -142,17 +142,26 @@
         .report-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
         .report-card h4{margin:0 0 10px;color:#0f172a}
         .report-card input,.report-card select{width:100%;box-sizing:border-box;margin:4px 0;padding:9px;border:1px solid #cbd5e1;border-radius:8px}
-        .report-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+        .report-actions{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 10px;padding:8px;background:rgba(248,250,252,.96);border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 3px 12px rgba(15,23,42,.08);backdrop-filter:blur(5px)}
+        .report-actions .btn{flex:0 1 auto;min-width:145px;font-size:1rem;padding:11px 15px}
+        .report-result{scroll-margin-top:90px}
         .report-result{margin-top:14px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:12px;overflow:auto}
-        .report-result table{width:100%;border-collapse:collapse;font-size:.88rem}
-        .report-result th,.report-result td{border:1px solid #cbd5e1;padding:6px;text-align:center}
+        .report-result table{width:100%;border-collapse:collapse;font-size:.95rem;line-height:1.35}
+        .report-result th,.report-result td{border:1px solid #cbd5e1;padding:7px;text-align:center}
         .report-result th{background:#e2e8f0}
         .report-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
         .report-stat{background:#f1f5f9;border-radius:10px;padding:8px 14px;font-weight:bold}
         .report-note{text-align:center;color:#64748b;font-size:.8rem;margin-top:8px}
-        @media(max-width:600px){.report-grid{grid-template-columns:1fr}.report-actions .btn{flex:1 1 45%}}
+        @media(max-width:600px){.report-grid{grid-template-columns:1fr}.report-actions{position:sticky;top:0}.report-actions .btn{flex:1 1 45%;min-width:0;font-size:.95rem;padding:10px 8px}}
 
         .session-box{margin:12px 0;padding:14px;border:2px solid #c7d2fe;border-radius:14px;background:#f8fafc;text-align:center}.session-state{font-weight:bold;margin-bottom:8px}.session-buttons{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.session-buttons .btn{min-width:180px}.session-closed-note{color:#b91c1c;font-weight:bold}.session-open-note{color:#047857;font-weight:bold}
+        .report-float-nav{position:fixed;left:14px;bottom:18px;z-index:1800;display:flex;flex-direction:column;gap:8px}
+        .report-float-nav button{border:0;border-radius:10px;padding:9px 12px;background:#1e293b;color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18);font-size:.82rem}
+        .report-float-nav button:active{transform:scale(.98)}
+        .report-sticky-actions{position:sticky;top:8px;z-index:1200;background:rgba(255,255,255,.96);padding:8px;border:1px solid #cbd5e1;border-radius:12px;backdrop-filter:blur(4px);box-shadow:0 4px 12px rgba(15,23,42,.08);margin-bottom:8px}
+        .report-result .dates-cell{white-space:pre-line;overflow-wrap:anywhere;word-break:break-word;line-height:1.45}
+        .upper-daily-absent td{background:#e5e7eb !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+        @media(max-width:600px){.report-float-nav{left:8px;bottom:72px}.report-float-nav button{padding:8px 10px;font-size:.76rem}.report-sticky-actions{top:4px}}
     </style>
 </head>
 <body>
@@ -257,6 +266,15 @@
             </div>
             <div class="manage-buttons">
                 <button class="btn btn-primary" onclick="saveSchoolSettings()">💾 حفظ بيانات المدرسة</button>
+                <button class="btn btn-danger" id="schoolResetBtn" onclick="archiveAndStartNewYear()" style="display:none;background:#b91c1c;">📦 أرشفة العام وبدء عام جديد</button>
+            </div>
+            <div style="text-align:center;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:8px;margin-top:8px;font-size:.8rem;line-height:1.7;">
+                <b>الأرشفة آمنة:</b> العام الحالي يتم حفظه أولًا، ثم تبدأ المدرسة عامًا جديدًا بطلاب وحضور جدد. ويمكن لمدير المدرسة الرجوع لاحقًا إلى أي عام مؤرشف.
+            </div>
+            <div class="manage-box" id="yearArchiveBox" style="background:#f8fafc;border-color:#cbd5e1;margin-top:12px;">
+                <h3>📚 أرشيف السنوات الدراسية</h3>
+                <div id="yearArchiveStatus" style="text-align:center;color:#64748b;font-size:.82rem;margin-bottom:8px;"></div>
+                <div id="yearArchiveList"></div>
             </div>
         </div>
 
@@ -446,13 +464,13 @@
                 </div>
             </div>
             <div class="report-note">التقارير تقرأ كل سجلات المدرسة من قاعدة البيانات، لذلك تجمع بيانات جميع الموظفين/الفرق معًا.</div>
-            <div id="reportResult" class="report-result" style="display:none"></div>
-            <div id="reportActions" class="report-actions" style="display:none;justify-content:center">
+            <div id="reportActions" class="report-actions report-sticky-actions" style="display:none;justify-content:center">
                 <button class="btn btn-warning" onclick="printCurrentReport()">🖨️ طباعة</button>
                 <button class="btn btn-danger" onclick="pdfCurrentReport()">📑 PDF</button>
                 <button class="btn btn-success" onclick="excelCurrentReport()">📊 Excel</button>
                 <button class="btn btn-success" onclick="whatsappCurrentReport()">📱 واتساب</button>
             </div>
+            <div id="reportResult" class="report-result" style="display:none"></div>
         </div>
 
         <div class="section-title">📊 التقارير والتصدير (يومي / فصول)</div>
@@ -469,6 +487,11 @@
     </div>
 
     <div id="toast" class="toast"></div>
+
+    <div class="report-float-nav" aria-label="التنقل السريع في الصفحة">
+        <button type="button" onclick="scrollReportTop()">⬆ أعلى الصفحة</button>
+        <button type="button" onclick="scrollReportBottom()">⬇ آخر الصفحة</button>
+    </div>
 
     <div id="exportModal" class="export-modal">
         <div class="export-box">
@@ -527,6 +550,19 @@
         function isAbsenceOfficer(){ return currentRole === "absence_officer"; }
         function isStudentAffairs(){ return currentRole === "student_affairs"; }
         function isEmployee(){ return !isSchoolAdmin(); }
+
+        function ensureArchiveUI(){
+            const box=document.getElementById('yearArchiveBox');
+            if(!box) return;
+            if(isSchoolAdmin()){
+                box.style.display='block';
+                if(typeof loadYearArchives==='function' && currentSchool){
+                    loadYearArchives();
+                }
+            }else{
+                box.style.display='none';
+            }
+        }
         function roleLabel(role){
             if(role === "school_admin" || role === "platform_admin") return "👑 مدير المدرسة";
             if(role === "absence_officer") return "📝 مسؤول الغياب";
@@ -562,6 +598,9 @@
             if(admin && currentSchool) loadSchoolStaff();
             const backup=document.querySelector(".backup-box"); if(backup) backup.style.display=admin?"block":"none";
             const test=document.getElementById("reportTestBox"); if(test) test.style.display=admin?"block":"none";
+             const resetBtn=document.getElementById("schoolResetBtn");
+            if(resetBtn) resetBtn.style.display=admin?"block":"none";
+            ensureArchiveUI();
             const roleNote=document.getElementById("rolePermissionNote");
             if(roleNote){
                 if(admin) roleNote.innerHTML="👑 مدير المدرسة — صلاحيات كاملة داخل المدرسة.";
@@ -626,6 +665,7 @@
                 await loadData();
                 loadSchoolSettings();
                 applyRoleUI();
+                ensureArchiveUI();
                 saveData();
                 showToast('✅ تم تسجيل الدخول بنجاح');
             }catch(e){
@@ -878,9 +918,162 @@
 
         function loadSchoolSettings(){
             ['schoolName','educationAdmin','schoolStage','schoolYear','schoolManager','studentAffairsOfficer'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=schoolSettings[id]||'';});
-            if(isSchoolAdmin()) loadSchoolStaff();
+            if(isSchoolAdmin()){
+                loadSchoolStaff();
+                ensureArchiveUI();
+            }else{
+                ensureArchiveUI();
+            }
         }
 
+        async function prepareNewSchoolYear(){
+            return archiveAndStartNewYear();
+        }
+
+        async function archiveAndStartNewYear(){
+            if(!currentSchool || !isSchoolAdmin()){ alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            const currentYear=(schoolSettings.schoolYear||currentSchool.school_year||'').trim();
+            if(!currentYear){ alert('⚠️ اكتب العام الدراسي الحالي أولًا ثم احفظ بيانات المدرسة.'); return; }
+            const newYear=prompt('اكتب العام الدراسي الجديد، مثال: 2027-2028', '');
+            if(newYear===null) return;
+            const year=newYear.trim();
+            if(!year){ alert('اكتب العام الدراسي الجديد.'); return; }
+            if(year===currentYear){ alert('⚠️ العام الدراسي الجديد مطابق للعام الحالي.'); return; }
+            const ok1=confirm(
+                `📦 أرشفة العام ${currentYear} وبدء ${year}?\n\n`+
+                'سيتم حفظ الطلاب وسجلات الحضور والغياب الحالية في الأرشيف أولًا.\n'+
+                'بعد نجاح الأرشفة فقط سيتم إفراغ المدرسة لبدء العام الجديد.\n\n'+
+                'لن يتم حذف المدرسة أو حسابات المستخدمين أو إعدادات المدرسة.'
+            );
+            if(!ok1) return;
+            const ok2=confirm('🚨 تأكيد نهائي\n\nلن يتم حذف العام الحالي؛ سيتم أرشفته ويمكن استعادته لاحقًا.\n\nهل تريد المتابعة؟');
+            if(!ok2) return;
+            try{
+                showToast('⏳ جاري أرشفة العام الحالي وبدء العام الجديد...');
+                const {data,error}=await supabaseClient.rpc('archive_current_school_year',{
+                    p_school_id: currentSchool.id,
+                    p_new_year: year
+                });
+                if(error) throw error;
+                schoolSettings.schoolYear=year;
+                schoolSettings.attendanceSession={openDate:'',closedDates:[]};
+                normalizeAttendanceSession();
+                currentSchool.school_year=year;
+                students=[];
+                attendance={};
+                document.getElementById('schoolYear').value=year;
+                updateAttendanceSessionUI();
+                updateStats();
+                renderClassStats();
+                renderStudentsList();
+                applyRoleUI();
+                await loadYearArchives();
+                ensureArchiveUI();
+                const archiveBoxAfterArchive=document.getElementById('yearArchiveBox');
+                if(archiveBoxAfterArchive && isSchoolAdmin()) archiveBoxAfterArchive.style.display='block';
+                showToast(`✅ تم أرشفة ${currentYear} وبدء العام ${year}`);
+                alert(`✅ تمت العملية بنجاح.\n\nتم حفظ العام ${currentYear} في الأرشيف.\nتم بدء العام ${year} ببيانات طلاب وحضور جديدة.`);
+            }catch(e){
+                console.error(e);
+                alert('❌ تعذر أرشفة العام وبدء العام الجديد: '+(e.message||e));
+            }
+        }
+
+        async function loadYearArchives(){
+            const box=document.getElementById('yearArchiveBox');
+            const list=document.getElementById('yearArchiveList');
+            const status=document.getElementById('yearArchiveStatus');
+            if(!box||!list||!status||!isSchoolAdmin()||!currentSchool) return;
+            box.style.display='block';
+            status.textContent='⏳ جاري تحميل الأرشيف...';
+            try{
+                const {data,error}=await supabaseClient
+                    .from('school_year_archives')
+                    .select('id,academic_year,archived_at,student_count,attendance_count')
+                    .eq('school_id',currentSchool.id)
+                    .order('academic_year',{ascending:false});
+                if(error) throw error;
+                const rows=data||[];
+                status.textContent=rows.length?`عدد السنوات المؤرشفة: ${rows.length}`:'لا توجد سنوات مؤرشفة حتى الآن.';
+                list.innerHTML=rows.length ? rows.map(r=>`<div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div><b>📚 ${escapeHtml(r.academic_year)}</b><div style="font-size:.78rem;color:#64748b;margin-top:4px;">طلاب: ${r.student_count||0} | سجلات حضور: ${r.attendance_count||0} | ${r.archived_at?new Date(r.archived_at).toLocaleString('ar-EG'):''}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;">
+<button class="btn btn-info" style="padding:7px 10px;" onclick="restoreArchivedYear('${r.id}','${escapeHtml(r.academic_year).replace(/'/g,"&#39;")}')">🔄 استعادة هذا العام</button>
+<button class="btn btn-danger" style="padding:7px 10px;" onclick="deleteArchivedYear('${r.id}','${escapeHtml(r.academic_year).replace(/'/g,"&#39;")}')">🗑️ حذف الأرشيف</button>
+</div></div>`).join('') : '<div style="text-align:center;color:#94a3b8;padding:10px;">لا توجد بيانات في الأرشيف.</div>';
+            }catch(e){
+                console.error(e);
+                status.textContent='❌ تعذر تحميل الأرشيف: '+(e.message||e);
+            }
+        }
+
+        async function restoreArchivedYear(archiveId,year){
+            if(!currentSchool || !isSchoolAdmin()) { alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            const currentYear=(schoolSettings.schoolYear||currentSchool.school_year||'').trim();
+            if(!archiveId) return;
+            if(year===currentYear){ alert('ℹ️ المدرسة تعمل بالفعل على هذا العام.'); return; }
+            const ok=confirm(`⚠️ استعادة العام ${year}؟\n\nسيتم أولًا حفظ العام الحالي ${currentYear||'الحالي'} إذا كانت له بيانات، ثم استعادة الطلاب وسجلات الحضور والغياب الخاصة بالعام ${year}.\n\nهذا لا يحذف حسابات المستخدمين أو المدرسة.`);
+            if(!ok) return;
+            const ok2=confirm(`🚨 تأكيد استعادة ${year}\n\nسيتم استبدال البيانات الحالية ببيانات العام المؤرشف.`);
+            if(!ok2) return;
+            try{
+                showToast(`⏳ جاري استعادة العام ${year}...`);
+                const {data,error}=await supabaseClient.rpc('restore_school_year',{p_school_id:currentSchool.id,p_archive_id:archiveId});
+                if(error) throw error;
+                schoolSettings=Object.assign(schoolSettings,(await supabaseClient.from('school_settings').select('settings').eq('school_id',currentSchool.id).maybeSingle()).data?.settings||{});
+                normalizeAttendanceSession();
+                currentSchool.school_year=schoolSettings.schoolYear||year;
+                document.getElementById('schoolYear').value=currentSchool.school_year;
+                document.getElementById('loggedSchoolName').innerText=currentSchool.school_name;
+                await loadData();
+                loadSchoolSettings();
+                applyRoleUI();
+                updateAttendanceSessionUI();
+                await loadYearArchives();
+                ensureArchiveUI();
+                const archiveBoxAfterRestore=document.getElementById('yearArchiveBox');
+                if(archiveBoxAfterRestore && isSchoolAdmin()) archiveBoxAfterRestore.style.display='block';
+                showToast(`✅ تمت استعادة العام ${year}`);
+                alert(`✅ تمت استعادة العام ${year} بنجاح.\n\nعدد الطلاب: ${data?.student_count??students.length}`);
+            }catch(e){
+                console.error(e);
+                alert('❌ تعذر استعادة العام: '+(e.message||e));
+            }
+        }
+
+        async function deleteArchivedYear(archiveId, year){
+            if(!currentSchool || !isSchoolAdmin()){
+                alert('⛔ حذف الأرشيف من صلاحية مدير المدرسة فقط.');
+                return;
+            }
+            if(!archiveId) return;
+
+            const ok1=confirm(`⚠️ حذف أرشيف العام ${year}؟\n\nسيتم حذف نسخة الأرشيف لهذا العام فقط من قاعدة البيانات.\nلن يتم حذف الطلاب الحاليين أو الحضور الحالي أو المدرسة أو حسابات الموظفين.\n\nهذه العملية لا يمكن التراجع عنها.`);
+            if(!ok1) return;
+
+            const ok2=confirm(`🚨 تأكيد نهائي\n\nأنت على وشك حذف أرشيف ${year} نهائيًا.\n\nهل تريد المتابعة؟`);
+            if(!ok2) return;
+
+            try{
+                showToast(`⏳ جاري حذف أرشيف ${year}...`);
+                const {data,error}=await supabaseClient.rpc('delete_school_year_archive',{
+                    p_school_id: currentSchool.id,
+                    p_archive_id: archiveId
+                });
+                if(error) throw error;
+
+                await loadYearArchives();
+                ensureArchiveUI();
+                showToast(`✅ تم حذف أرشيف ${year}`);
+                alert(`✅ تم حذف أرشيف ${year} بنجاح.\n\nتم حذف الأرشيف فقط ولم يتم المساس ببيانات المدرسة الحالية.`);
+            }catch(e){
+                console.error(e);
+                alert('❌ تعذر حذف الأرشيف: '+(e.message||e));
+            }
+        }
+
+        async function resetSchoolForNewYear(){
+            return archiveAndStartNewYear();
+        }
+        
         async function saveSchoolSettings(){
             if(!currentSchool) return;
             if(!isSchoolAdmin()){ showToast("⛔ هذا الحساب لا يملك صلاحية تعديل بيانات المدرسة."); return; }
@@ -1522,12 +1715,26 @@
             const present = students.filter(s => attendance[s.id] === 'present').length;
             const absent = total - present;
             const percent = total ? Math.round((present / total) * 100) : 0;
+            const groups = {};
+            students.forEach(s => {
+                const key = `${gradeNumber(s.grade)}|${String(s.classNum || 'غير محدد')}`;
+                if (!groups[key]) groups[key] = { grade: gradeNumber(s.grade), classNum: String(s.classNum || 'غير محدد'), rows: [] };
+                groups[key].rows.push(s);
+            });
+            const groupList = Object.values(groups).sort((a,b)=>{
+                const ga=parseInt(a.grade), gb=parseInt(b.grade), ca=parseInt(a.classNum), cb=parseInt(b.classNum);
+                if(Number.isFinite(ga)&&Number.isFinite(gb)&&ga!==gb) return ga-gb;
+                if(Number.isFinite(ca)&&Number.isFinite(cb)) return ca-cb;
+                return 0;
+            });
 
             const rows = [
                 [schoolSettings.schoolName || 'اسم المدرسة'],
                 ...(schoolSettings.educationAdmin ? [[`الإدارة التعليمية: ${schoolSettings.educationAdmin}`]] : []),
                 ...(schoolSettings.schoolStage ? [[`المرحلة التعليمية: ${schoolSettings.schoolStage}`]] : []),
                 ...(schoolSettings.schoolYear ? [[`العام الدراسي: ${schoolSettings.schoolYear}`]] : []),
+                ...(schoolSettings.schoolManager ? [[`مدير المدرسة: ${schoolSettings.schoolManager}`]] : []),
+                ...(schoolSettings.studentAffairsOfficer ? [[`مسؤول شئون الطلبة: ${schoolSettings.studentAffairsOfficer}`]] : []),
                 [`تقرير الغياب اليومي الشامل — ${arabicReportDate()}`],
                 [],
                 ['الإحصائية العامة للمدرسة'],
@@ -1536,74 +1743,66 @@
                 ['الحاضرون', present, percent + '%'],
                 ['الغائبون', absent, (100 - percent) + '%'],
                 [],
-                ['إحصائية الصفوف'],
-                ['الصف','إجمالي الطلاب','الحاضرون','الغائبون','نسبة الحضور']
+                ['ملخص الفصول'],
+                ['الفصل','إجمالي الطلاب','الحاضرون','الغائبون','نسبة الحضور']
             ];
 
-            ['الأول','الثانى','الثالث'].forEach(g => {
-                const a = students.filter(s => s.grade === g);
+            groupList.forEach(g => {
+                const a = g.rows;
                 const p = a.filter(s => attendance[s.id] === 'present').length;
-                rows.push([`الصف ${g}`, a.length, p, a.length - p, (a.length ? Math.round(p/a.length*100) : 0) + '%']);
+                rows.push([`${g.classNum}/${g.grade}`, a.length, p, a.length-p, (a.length ? Math.round(p/a.length*100) : 0) + '%']);
             });
-
-            rows.push([], ['إحصائية الفصول'], ['الفصل','إجمالي الطلاب','الحاضرون','الغائبون','نسبة الحضور']);
-            for (let i = 1; i <= 7; i++) {
-                const a = students.filter(s => s.classNum == i);
-                if (!a.length) continue;
-                const p = a.filter(s => attendance[s.id] === 'present').length;
-                rows.push([`الفصل ${i}`, a.length, p, a.length-p, Math.round(p/a.length*100) + '%']);
-            }
 
             rows.push([], ['كشف الطلاب بالكامل'], ['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة']);
             students.forEach((s,i) => {
-                rows.push([i+1, s.name, String(s.id), s.grade, s.classNum,
+                rows.push([i+1, s.name, String(s.id), s.grade, classDisplayLabel(s),
                     attendance[s.id] === 'present' ? 'حاضر' : 'غائب']);
             });
 
             const ws = XLSX.utils.aoa_to_sheet(rows);
             ws['!dir'] = 'rtl';
-            ws['!cols'] = [{wch:6},{wch:34},{wch:20},{wch:14},{wch:10},{wch:14}];
+            ws['!cols'] = [{wch:6},{wch:34},{wch:20},{wch:14},{wch:12},{wch:14}];
             XLSX.utils.book_append_sheet(wb, ws, 'التقرير الشامل');
 
-            for (let i = 1; i <= 7; i++) {
-                const a = students.filter(s => s.classNum == i);
-                if (!a.length) continue;
+            groupList.forEach(g => {
+                const a = g.rows;
                 const p = a.filter(s => attendance[s.id] === 'present').length;
-
+                const label = `${g.classNum}/${g.grade}`;
                 const d = [
                     [schoolSettings.schoolName || 'اسم المدرسة'],
-                    [`كشف حضور وغياب الفصل ${i}`],
+                    ...(schoolSettings.educationAdmin ? [[`الإدارة التعليمية: ${schoolSettings.educationAdmin}`]] : []),
+                    ...(schoolSettings.schoolStage ? [[`المرحلة التعليمية: ${schoolSettings.schoolStage}`]] : []),
+                    ...(schoolSettings.schoolYear ? [[`العام الدراسي: ${schoolSettings.schoolYear}`]] : []),
+                    ...(schoolSettings.schoolManager ? [[`مدير المدرسة: ${schoolSettings.schoolManager}`]] : []),
+                    ...(schoolSettings.studentAffairsOfficer ? [[`مسؤول شئون الطلبة: ${schoolSettings.studentAffairsOfficer}`]] : []),
+                    [`كشف حضور وغياب الفصل ${label}`],
                     [`التاريخ: ${arabicReportDate()}`],
                     [`إجمالي الطلاب: ${a.length} | الحاضرون: ${p} | الغائبون: ${a.length-p} | نسبة الحضور: ${Math.round(p/a.length*100)}%`],
                     [],
                     ['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة']
                 ];
-
-                a.forEach((s,j) => d.push([
-                    j+1, s.name, String(s.id), s.grade, s.classNum,
-                    attendance[s.id] === 'present' ? 'حاضر' : 'غائب'
+                a.forEach((st,j) => d.push([
+                    j+1, st.name, String(st.id), st.grade, classDisplayLabel(st),
+                    attendance[st.id] === 'present' ? 'حاضر' : 'غائب'
                 ]));
-
                 const w = XLSX.utils.aoa_to_sheet(d);
                 w['!dir'] = 'rtl';
-                w['!cols'] = [{wch:6},{wch:34},{wch:20},{wch:14},{wch:10},{wch:14}];
-                XLSX.utils.book_append_sheet(wb, w, `الفصل ${i}`);
-            }
+                for(const addr of Object.keys(w)){ if(addr[0]!=='!') w[addr].s={alignment:{vertical:'top',wrapText:true}}; }
+                w['!cols'] = [{wch:6},{wch:34},{wch:20},{wch:14},{wch:12},{wch:14}];
+                let sheetName=`الفصل ${g.grade}-${g.classNum}`.replace(/[\\\/?*\[\]:]/g,'').slice(0,31);
+                if(wb.SheetNames.includes(sheetName)) sheetName=(sheetName.slice(0,28)+'...').slice(0,31);
+                XLSX.utils.book_append_sheet(wb, w, sheetName);
+            });
 
             const date = document.getElementById('datePicker').value || 'اليومي';
             XLSX.writeFile(wb, `تقرير_الغياب_${schoolSettings.schoolName || 'المدرسة'}_${date}.xlsx`);
-
             let wa = reportHeader('📊 التقرير الشامل');
-            wa += `إجمالي الطلاب: ${total}\nالحاضرون: ${present}\nالغائبون: ${absent}\nنسبة الحضور: ${percent}%\n\n📚 إحصائية الفصول:\n`;
-            for (let i=1;i<=7;i++) {
-                const a=students.filter(s=>s.classNum==i);
-                if(!a.length) continue;
-                const p=a.filter(s=>attendance[s.id]==='present').length;
-                wa += `الفصل ${i}: إجمالي ${a.length} | حاضر ${p} | غائب ${a.length-p} | نسبة الحضور ${Math.round(p/a.length*100)}%\n`;
-            }
-
-            showToast('📊 تم تصدير تقرير Excel العربي وسيتم فتح واتساب بالملخص');
-            setTimeout(() => whatsappReport(wa), 600);
+            wa += `إجمالي الطلاب: ${total}\nالحاضرون: ${present}\nالغائبون: ${absent}\nنسبة الحضور: ${percent}%\n\n📚 ملخص الفصول:\n`;
+            groupList.forEach(g=>{
+                const a=g.rows,p=a.filter(st=>attendance[st.id]==='present').length;
+                wa += `الفصل ${g.classNum}/${g.grade}: إجمالي ${a.length} | حاضر ${p} | غائب ${a.length-p} | نسبة الحضور ${Math.round(p/a.length*100)}%\n`;
+            });
+            showToast('📊 تم تصدير Excel بالدباجة والإحصاء الشامل وشيت مستقل لكل فصل/صف.');
         }
 
         // تصدير تقرير PDF يومي شامل وفصول منفصلة
@@ -1642,18 +1841,16 @@
             first += `<h3>إحصائية الصفوف</h3><table><tr><th>الصف</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
             ['الأول','الثانى','الثالث'].forEach(g=>{const a=students.filter(s=>s.grade===g),p=a.filter(s=>attendance[s.id]==='present').length;first+=`<tr><td>${escapeReportHtml(g)}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${a.length?Math.round(p/a.length*100):0}%</td></tr>`;});
             first += `</table><h3>إحصائية الفصول</h3><table><tr><th>الفصل</th><th>إجمالي الطلاب</th><th>الحاضرون</th><th>الغائبون</th><th>نسبة الحضور</th></tr>`;
-            for(let i=1;i<=7;i++){const a=students.filter(s=>String(s.classNum)===String(i));if(!a.length)continue;const p=a.filter(s=>attendance[s.id]==='present').length;first+=`<tr><td>الفصل ${i}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${Math.round(p/a.length*100)}%</td></tr>`;}
+            const summaryGroups={};
+            students.forEach(s=>{const key=`${gradeNumber(s.grade)}|${String(s.classNum||'غير محدد')}`;if(!summaryGroups[key])summaryGroups[key]={grade:gradeNumber(s.grade),classNum:String(s.classNum||'غير محدد'),rows:[]};summaryGroups[key].rows.push(s);});
+            Object.values(summaryGroups).sort((a,b)=>{const ga=parseInt(a.grade),gb=parseInt(b.grade),ca=parseInt(a.classNum),cb=parseInt(b.classNum);if(Number.isFinite(ga)&&Number.isFinite(gb)&&ga!==gb)return ga-gb;if(Number.isFinite(ca)&&Number.isFinite(cb))return ca-cb;return 0;}).forEach(g=>{const a=g.rows,p=a.filter(s=>attendance[s.id]==='present').length;first+=`<tr><td>${g.grade}/${g.classNum}</td><td>${a.length}</td><td>${p}</td><td>${a.length-p}</td><td>${Math.round(p/a.length*100)}%</td></tr>`;});
             first += `</table>`;
 
             const pages=[makePdfPage(first)];
-            const absentRows=students.filter(s=>attendance[s.id]!=='present');
-            for(const batch of chunkArray(absentRows,18)){
-                let b=`<h2>كشف الطلاب الغائبين</h2><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th></tr>`;
-                batch.forEach((s,i)=>b+=`<tr><td>${i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${escapeReportHtml(s.classNum)}</td></tr>`);b+='</table>';pages.push(makePdfPage(b));
-            }
-            const allRows=chunkArray(students,16);
-            allRows.forEach((batch,bi)=>{let b=`<h2>كشف الطلاب بالكامل — صفحة ${bi+1}</h2><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;batch.forEach((s,i)=>b+=`<tr><td>${bi*16+i+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${escapeReportHtml(s.classNum)}</td><td>${attendance[s.id]==='present'?'حاضر':'غائب'}</td></tr>`);b+='</table>';pages.push(makePdfPage(b));});
-            for(let i=1;i<=7;i++){const a=students.filter(s=>String(s.classNum)===String(i));if(!a.length)continue;const p=a.filter(s=>attendance[s.id]==='present').length;for(const batch of chunkArray(a,16)){let b=`<h2>الفصل ${i}</h2><div class="report-summary"><span class="report-stat">إجمالي الطلاب: ${a.length}</span><span class="report-stat">حاضر: ${p}</span><span class="report-stat">غائب: ${a.length-p}</span><span class="report-stat">نسبة الحضور: ${Math.round(p/a.length*100)}%</span></div><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;batch.forEach((s,j)=>b+=`<tr><td>${a.indexOf(s)+1}</td><td>${escapeReportHtml(s.name)}</td><td>${escapeReportHtml(s.id)}</td><td>${escapeReportHtml(s.grade)}</td><td>${escapeReportHtml(s.classNum)}</td><td>${attendance[s.id]==='present'?'حاضر':'غائب'}</td></tr>`);b+='</table>';pages.push(makePdfPage(b));}}
+            const dailyGroups = {};
+            students.forEach(s=>{ const key=`${gradeNumber(s.grade)}|${String(s.classNum||'غير محدد')}`; if(!dailyGroups[key]) dailyGroups[key]={grade:gradeNumber(s.grade),classNum:String(s.classNum||'غير محدد'),rows:[]}; dailyGroups[key].rows.push(s); });
+            const dailyGroupList=Object.values(dailyGroups).sort((a,b)=>{const ga=parseInt(a.grade),gb=parseInt(b.grade),ca=parseInt(a.classNum),cb=parseInt(b.classNum);if(Number.isFinite(ga)&&Number.isFinite(gb)&&ga!==gb)return ga-gb;if(Number.isFinite(ca)&&Number.isFinite(cb))return ca-cb;return 0;});
+            dailyGroupList.forEach(g=>{const a=g.rows,p=a.filter(s=>attendance[s.id]==='present').length;for(const batch of chunkArray(a,50)){let b=`<h2>الفصل ${escapeReportHtml(`${g.grade}/${g.classNum}`)}</h2><div class="report-summary"><span class="report-stat">إجمالي الطلاب: ${a.length}</span><span class="report-stat">حاضر: ${p}</span><span class="report-stat">غائب: ${a.length-p}</span><span class="report-stat">نسبة الحضور: ${Math.round(p/a.length*100)}%</span></div><table><tr><th>م</th><th>اسم الطالب</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th></tr>`;batch.forEach(s=>{const isAbsent=attendance[s.id]!=='present'; const cellStyle=isAbsent?'background-color:#e5e7eb !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;':''; b+=`<tr class="${isAbsent?'daily-absent-row':''}"><td style="${cellStyle}">${a.indexOf(s)+1}</td><td style="${cellStyle}">${escapeReportHtml(s.name)}</td><td style="${cellStyle}">${escapeReportHtml(s.id)}</td><td style="${cellStyle}">${escapeReportHtml(s.grade)}</td><td style="${cellStyle}">${escapeReportHtml(classDisplayLabel(s))}</td><td style="${cellStyle}">${isAbsent?'غائب':'حاضر'}</td></tr>`;});b+='</table>';pages.push(makePdfPage(b));}});
             return pages.join('');
         }
 
@@ -1661,7 +1858,7 @@
             const w=window.open('about:blank','_blank');
             if(!w){showToast('⚠️ المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return false;}
             const doc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeReportHtml(title||'تقرير الغياب')}</title><style>
-                @page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Tahoma,"Segoe UI",Arial,sans-serif}body{direction:rtl}.pdf-page{position:relative;width:210mm;min-height:297mm;height:297mm;padding:12mm 12mm 24mm;page-break-after:always;overflow:hidden}.pdf-page:last-child{page-break-after:auto}.report-header{text-align:center;line-height:1.65;margin-bottom:8px}.report-header h1{font-size:20px;margin:0 0 2px}.report-header h2{font-size:18px;margin:5px 0}.pdf-page h2,.pdf-page h3{text-align:center;margin:7px 0}.pdf-page table{width:100%;border-collapse:collapse;margin:7px 0;font-size:10.5px}.pdf-page th,.pdf-page td{border:1px solid #555;padding:4px;text-align:center;vertical-align:middle}.pdf-page th{background:#eee}.summary th,.summary td{font-weight:bold}.report-summary{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin:7px 0}.report-stat{border:1px solid #bbb;padding:4px 7px;font-weight:bold}.pdf-page-footer{position:absolute;left:12mm;right:12mm;bottom:8mm;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #444;padding-top:4px;font-size:10px;line-height:1.5}.sig-left{text-align:left;width:42%}.sig-right{text-align:right;width:42%}@media print{.pdf-page{break-after:page}.pdf-page:last-child{break-after:auto}}
+                @page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Tahoma,"Segoe UI",Arial,sans-serif}body{direction:rtl}.pdf-page{position:relative;width:210mm;min-height:297mm;height:297mm;padding:8mm 9mm 23mm;page-break-after:always;overflow:hidden}.pdf-page:last-child{page-break-after:auto}.report-header{text-align:center;line-height:1.35;margin-bottom:5px}.report-header h1{font-size:20px;margin:0 0 1px}.report-header h2{font-size:20px;margin:2px 0}.pdf-page h2,.pdf-page h3{text-align:center;margin:3px 0;font-size:20px}.pdf-page table{width:100%;border-collapse:collapse;margin:2px 0;font-size:14px;line-height:1.05}.pdf-page th,.pdf-page td{border:1px solid #555;padding:0.6px 2px;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:break-word}.upper-daily-absent td{background:#e5e7eb !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-page td.dates-cell{white-space:pre-line;line-height:1.3}.pdf-page th{background:#eee}.daily-absent-row td{background:#e5e7eb !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.summary th,.summary td{font-weight:bold}.report-summary{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin:4px 0}.report-stat{border:1px solid #bbb;padding:2px 5px;font-weight:bold;font-size:14px}.pdf-page-footer{position:absolute;left:9mm;right:9mm;bottom:6mm;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #444;padding-top:3px;font-size:9px;line-height:1.25}.sig-left{text-align:left;width:42%}.sig-right{text-align:right;width:42%}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-page{break-after:page}.pdf-page:last-child{break-after:auto}}
             </style></head><body>${html}<script>setTimeout(function(){window.focus();window.print();},300);<\/script></body></html>`;
             w.document.open();w.document.write(doc);w.document.close();
             return true;
@@ -1683,19 +1880,32 @@
         async function createReportTestData(){
             if(!isSchoolAdmin()){ alert('⛔ بيانات اختبار التقارير متاحة لمدير المدرسة فقط.'); return; }
             if(!currentSchool || !currentUser){ alert('يجب تسجيل الدخول أولاً.'); return; }
-            if(!confirm('سيتم إنشاء طلاب اختبار وسجلات حضور/غياب لآخر 30 يومًا داخل مدرستك. هل تريد المتابعة؟')) return;
+            if(!confirm('سيتم إنشاء 50 طالب اختبار مع حضور وغياب متفاوت لآخر 30 يومًا داخل مدرستك. هذه البيانات للاختبار فقط ويمكن حذفها بالكامل من زر حذف بيانات الاختبار. هل تريد المتابعة؟')) return;
             const statusEl=document.getElementById('testDataStatus');
-            statusEl.textContent='⏳ جاري إنشاء بيانات الاختبار...';
+            statusEl.textContent='⏳ جاري إنشاء 50 طالبًا وبيانات غياب متنوعة...';
             try{
                 const prefix='TEST_REPORT_';
                 const {data:existing,error:exErr}=await supabaseClient.from('students').select('id,student_code,student_name,national_id,grade,class_name').eq('school_id',currentSchool.id);
                 if(exErr) throw exErr;
                 const testExisting=(existing||[]).filter(s => String(s.student_code||'').startsWith(prefix));
                 let testStudents=testExisting;
-                if(testStudents.length<10){
+
+                // إنشاء/استكمال 50 طالب اختبار في صف واحد وفصل واحد (الصف الثاني / الفصل 1 = 1/2 حسب نظام القراءة العربي).
+                if(testStudents.length<50){
                     const rows=[];
-                    for(let i=testStudents.length+1;i<=10;i++){
-                        rows.push({school_id:currentSchool.id,student_code:prefix+i,national_id:'9999999999'+String(i).padStart(4,'0'),student_name:'طالب اختبار التقارير '+i,grade:i<=4?'الأول':(i<=7?'الثانى':'الثالث'),class_name:String(((i-1)%7)+1),gender:i%2?'ذكر':'أنثى',extra_data:{report_test:true}});
+                    for(let i=testStudents.length+1;i<=50;i++){
+                        const grade = 'الثانى';
+                        const classNum = '1';
+                        rows.push({
+                            school_id:currentSchool.id,
+                            student_code:prefix+i,
+                            national_id:'9988'+String(i).padStart(10,'0'),
+                            student_name:'طالب اختبار التقارير '+i,
+                            grade,
+                            class_name:classNum,
+                            gender:i%2?'ذكر':'أنثى',
+                            extra_data:{report_test:true}
+                        });
                     }
                     if(rows.length){
                         const {data:ins,error}=await supabaseClient.from('students').insert(rows).select('id,student_code,student_name,national_id,grade,class_name');
@@ -1703,28 +1913,58 @@
                         testStudents=testStudents.concat(ins||[]);
                     }
                 }
+
                 // حذف سجلات الاختبار القديمة ثم إعادة بنائها بشكل ثابت.
-                const {error:delErr}=await supabaseClient.from('attendance').delete().eq('school_id',currentSchool.id).in('student_id',testStudents.map(s=>s.id));
-                if(delErr) throw delErr;
-                const rows=[];
-                const today=new Date(); today.setHours(12,0,0,0);
-                for(let d=1;d<=30;d++){
-                    const dt=new Date(today); dt.setDate(today.getDate()-d);
-                    const date=dt.toISOString().slice(0,10);
-                    testStudents.forEach((st,idx)=>{
-                        // نمط ثابت: كل طالب له عدد غياب مختلف لاختبار شرط "عدد أيام الغياب".
-                        const absent = ((d + idx*3) % (idx+3) === 0) || (idx===9 && d%2===0);
-                        rows.push({school_id:currentSchool.id,student_id:st.id,attendance_date:date,status:absent?'absent':'present',recorded_by:currentUser.id});
-                    });
+                const ids=testStudents.map(s=>s.id).filter(Boolean);
+                if(ids.length){
+                    const {error:delErr}=await supabaseClient.from('attendance').delete().eq('school_id',currentSchool.id).in('student_id',ids);
+                    if(delErr) throw delErr;
                 }
+
+                // مستويات غياب مقصودة لاختبار تمدد خلية "تواريخ الغياب".
+                const absenceTargets=[
+                    2,3,3,4,5,5,6,7,7,8,
+                    9,10,10,11,12,12,13,14,15,15,
+                    16,17,18,18,19,20,20,21,22,22,
+                    23,24,24,25,25,26,27,27,28,28,
+                    29,29,30,30,15,18,20,22,25,30
+                ];
+
+                const rows=[];
+                const today=new Date();
+                today.setHours(12,0,0,0);
+                const sortedStudents=[...testStudents].sort((a,b)=>{
+                    const na=parseInt(String(a.student_code||'').replace(prefix,''))||0;
+                    const nb=parseInt(String(b.student_code||'').replace(prefix,''))||0;
+                    return na-nb;
+                });
+
+                sortedStudents.forEach((st,idx)=>{
+                    const target=Math.min(30,absenceTargets[idx%absenceTargets.length]);
+                    for(let d=1;d<=30;d++){
+                        const dt=new Date(today);
+                        dt.setDate(today.getDate()-d);
+                        const date=dt.toISOString().slice(0,10);
+                        // توزيع ثابت: أول target أيام من نمط مختلف، مع إزاحة بسيطة بين الطلاب.
+                        const absent = ((d + idx) % 30) < target;
+                        rows.push({
+                            school_id:currentSchool.id,
+                            student_id:st.id,
+                            attendance_date:date,
+                            status:absent?'absent':'present',
+                            recorded_by:currentUser.id
+                        });
+                    }
+                });
+
                 for(let i=0;i<rows.length;i+=500){
                     const {error}=await supabaseClient.from('attendance').insert(rows.slice(i,i+500));
                     if(error) throw error;
                 }
-                // إعادة تحميل طلاب المدرسة حتى يظهروا فورًا في الواجهة.
+
                 await loadData();
-                statusEl.textContent='✅ تم إنشاء 10 طلاب اختبار و300 سجل لآخر 30 يومًا. يمكنك الآن اختبار التقارير.';
-                showToast('🧪 بيانات الاختبار جاهزة');
+                statusEl.textContent='✅ تم تجهيز 50 طالب اختبار كلهم في الصف الثاني / الفصل 1 (المعروض 1/2) و1500 سجل لآخر 30 يومًا. بعض الطلاب لديهم حتى 30 يوم غياب لاختبار تنسيق PDF وExcel.';
+                showToast('🧪 بيانات اختبار الـ50 طالب جاهزة');
             }catch(e){
                 console.error(e);
                 statusEl.textContent='❌ فشل إنشاء بيانات الاختبار: '+(e.message||e);
@@ -1940,16 +2180,17 @@
                 const matches=students.filter(s=>[s.name,s.id,s.studentCode,s.national_id].some(v=>String(v||'').toLowerCase().includes(q.toLowerCase())));
                 if(!matches.length){alert('لم يتم العثور على الطالب.');return;}
                 const records=await fetchAttendanceRange(start,end);
-                let rows=[]; let text=reportHeader('🔎 استعلام غياب طالب')+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\\n\\n`;
+                let rows=[]; let text=reportHeader('🔎 استعلام غياب طالب')+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\n\n`;
                 matches.forEach(s=>{
-                    const dates=[...new Set(records.filter(r=>r.student_id===s.dbId && r.status==='absent').map(r=>r.attendance_date))];
+                    const dates=[...new Set(records.filter(r=>r.student_id===s.dbId && r.status==='absent').map(r=>r.attendance_date))].sort();
                     rows.push({name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,absentDays:dates.length,dates});
-                    text+=`الطالب: ${s.name}\\nالصف: ${s.grade} | الفصل: ${s.classNum}\\nعدد أيام الغياب: ${dates.length}\\nأيام الغياب: ${dates.map(fmtDate).join('، ')||'لا يوجد'}\\n\\n`;
+                    text+=`الطالب: ${s.name}\nالصف: ${s.grade} | الفصل: ${classDisplayLabel(s)}\nعدد أيام الغياب: ${dates.length}\nأيام الغياب: ${dates.map(fmtDate).join('، ')||'لا يوجد'}\n\n`;
                 });
-                let body='<table><tr><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الغياب</th><th>تواريخ الغياب</th></tr>';
-                rows.forEach(r=>body+=`<tr><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.absentDays}</td><td>${r.dates.map(fmtDate).join('، ')||'لا يوجد'}</td></tr>`);
-                body+='</table>';
+                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الغياب</th></tr>';
+                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(classDisplayLabel(r))}</td><td>${r.absentDays}</td></tr>`);
+                body+='</table>'+absenceDetailsHtml(rows,'تفاصيل تواريخ الغياب للطالب');
                 setReportResult(title,reportShell(title,start,end,'',body),rows,text,start,end);
+                currentReport.detailMode='student';
             }catch(e){alert('تعذر تحميل الاستعلام: '+e.message);}
         }
         async function runStudentAbsenceReport(){
@@ -1972,11 +2213,14 @@
                 records.forEach(r=>{ if(!byStudent.has(r.student_id)) byStudent.set(r.student_id,{absent:new Set(),present:new Set()}); const x=byStudent.get(r.student_id); (r.status==='present'?x.present:x.absent).add(r.attendance_date); });
                 const rows=students.map(s=>{const x=byStudent.get(s.dbId)||{absent:new Set(),present:new Set()};return {name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,absentDays:x.absent.size,presentDays:x.present.size,dates:[...x.absent].sort()};});
                 const total=rows.length, absentTotal=rows.reduce((a,r)=>a+r.absentDays,0);
-                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الحضور</th><th>أيام الغياب</th><th>تواريخ الغياب</th></tr>';
-                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.presentDays}</td><td>${r.absentDays}</td><td>${r.dates.map(fmtDate).join('، ')||'لا يوجد'}</td></tr>`); body+='</table>';
+                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الحضور</th><th>أيام الغياب</th></tr>';
+                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(classDisplayLabel(r))}</td><td>${r.presentDays}</td><td>${r.absentDays}</td></tr>`); body+='</table>';
+                const isMonthly=title.includes('الشهري');
+                body+=absenceDetailsHtml(rows,isMonthly?'تفاصيل تواريخ الغياب':'تفاصيل تواريخ الغياب في الفترة');
                 const summary=`<div class="report-summary"><div class="report-stat">عدد الطلاب: ${total}</div><div class="report-stat">إجمالي حالات الغياب: ${absentTotal}</div></div>`;
-                const text=reportHeader(title)+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\\nعدد الطلاب: ${total}\\nإجمالي حالات الغياب: ${absentTotal}\\n\\n`+rows.filter(r=>r.absentDays>0).map(r=>`${r.name}: ${r.absentDays} يوم — ${r.dates.map(fmtDate).join('، ')}`).join('\\n');
+                const text=reportHeader(title)+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\nعدد الطلاب: ${total}\nإجمالي حالات الغياب: ${absentTotal}\n\n`+rows.filter(r=>r.absentDays>0).map(r=>`${r.name}: ${r.absentDays} يوم — ${r.dates.map(fmtDate).join('، ')}`).join('\n');
                 setReportResult(title,reportShell(title,start,end,summary,body),rows,text,start,end);
+                currentReport.detailMode=isMonthly?'monthly':'period';
             }catch(e){alert('تعذر تحميل التقرير: '+e.message);}
         }
         async function runMinAbsenceReport(){
@@ -1986,46 +2230,88 @@
             try{
                 const records=await fetchAttendanceRange(start,end);
                 const rows=students.map(s=>{const dates=[...new Set(records.filter(r=>r.student_id===s.dbId&&r.status==='absent').map(r=>r.attendance_date))].sort();return{name:s.name,id:s.id,grade:s.grade,classNum:s.classNum,absentDays:dates.length,dates};}).filter(r=>r.absentDays>=n);
-                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الغياب</th><th>التواريخ</th></tr>';
-                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td><td>${r.absentDays}</td><td>${r.dates.map(fmtDate).join('، ')}</td></tr>`); body+='</table>';
+                let body='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>أيام الغياب</th></tr>';
+                rows.forEach((r,i)=>body+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(classDisplayLabel(r))}</td><td>${r.absentDays}</td></tr>`); body+='</table>'+absenceDetailsHtml(rows,'تفاصيل تواريخ الغياب للطلاب المستوفين للحد الأدنى');
                 const summary=`<div class="report-summary"><div class="report-stat">الحد الأدنى: ${n} أيام</div><div class="report-stat">عدد الطلاب: ${rows.length}</div></div>`;
-                const text=reportHeader('🔢 الطلاب الغائبون عدد أيام فأكثر')+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\\nالحد الأدنى: ${n} أيام\\nعدد الطلاب: ${rows.length}\\n\\n`+rows.map((r,i)=>`${i+1}. ${r.name}: ${r.absentDays} يوم`).join('\\n');
+                const text=reportHeader('🔢 الطلاب الغائبون عدد أيام فأكثر')+`الفترة: ${fmtDate(start)} إلى ${fmtDate(end)}\nالحد الأدنى: ${n} أيام\nعدد الطلاب: ${rows.length}\n\n`+rows.map((r,i)=>`${i+1}. ${r.name}: ${r.absentDays} يوم`).join('\n');
                 setReportResult('الطلاب الغائبون عدد أيام فأكثر',reportShell('الطلاب الغائبون عدد أيام فأكثر',start,end,summary,body),rows,text,start,end);
+                currentReport.detailMode='minimum';
             }catch(e){alert('تعذر تحميل التقرير: '+e.message);}
+        }
+        function gradeNumber(grade){
+            const g=String(grade||'').trim();
+            if(g==='الأول' || g==='1' || /الأول/.test(g)) return '1';
+            if(g==='الثانى' || g==='الثاني' || g==='2' || /الثان/.test(g)) return '2';
+            if(g==='الثالث' || g==='3' || /الثالث/.test(g)) return '3';
+            return g || 'غير محدد';
+        }
+        function classDisplayLabel(rowOrGroup){
+            const grade = gradeNumber(rowOrGroup?.grade || rowOrGroup?.gradeNum || '');
+            const cls = String(rowOrGroup?.classNum==null||rowOrGroup?.classNum===''?'غير محدد':rowOrGroup.classNum);
+            return `${grade}/${cls}`;
         }
         function getReportClassGroups(){
             const groups={};
             (currentReport.rows||[]).forEach(r=>{
-                const key=String(r.classNum==null||r.classNum===''?'غير محدد':r.classNum);
-                if(!groups[key]) groups[key]=[];
-                groups[key].push(r);
+                const key=`${gradeNumber(r.grade)}|${String(r.classNum==null||r.classNum===''?'غير محدد':r.classNum)}`;
+                if(!groups[key]) groups[key]={grade:gradeNumber(r.grade),classNum:String(r.classNum==null||r.classNum===''?'غير محدد':r.classNum),rows:[]};
+                groups[key].rows.push(r);
             });
-            return Object.keys(groups).sort((a,b)=>{
-                const na=parseInt(a), nb=parseInt(b);
-                if(Number.isFinite(na)&&Number.isFinite(nb)) return na-nb;
-                if(Number.isFinite(na)) return -1;
-                if(Number.isFinite(nb)) return 1;
-                return a.localeCompare(b,'ar');
-            }).map(k=>({classNum:k,rows:groups[k]}));
+            return Object.values(groups).sort((a,b)=>{
+                const ga=parseInt(a.grade), gb=parseInt(b.grade), ca=parseInt(a.classNum), cb=parseInt(b.classNum);
+                if(Number.isFinite(ga)&&Number.isFinite(gb)&&ga!==gb) return ga-gb;
+                if(Number.isFinite(ga)&&!Number.isFinite(gb)) return -1;
+                if(!Number.isFinite(ga)&&Number.isFinite(gb)) return 1;
+                if(Number.isFinite(ca)&&Number.isFinite(cb)) return ca-cb;
+                if(Number.isFinite(ca)) return -1;
+                if(Number.isFinite(cb)) return 1;
+                return String(a.classNum).localeCompare(String(b.classNum),'ar');
+            });
+        }
+        function formatDatesForCell(dates){
+            const vals=(dates||[]).map(v=>{ const s=String(v||''); const p=s.split('-'); return p.length===3 ? String(Number(p[2])) : s; }).filter(Boolean);
+            if(!vals.length) return 'لا يوجد';
+            const out=[];
+            for(let i=0;i<vals.length;i+=12) out.push(vals.slice(i,i+12).join('، '));
+            return out.join('\n');
         }
         function reportRowsTable(rows){
             if(!rows.length) return '<div style="padding:12px;text-align:center;color:#64748b">لا توجد بيانات في هذا الفصل.</div>';
             const hasStatus=rows.some(r=>r.status!=null && r.status!=='');
+            const hasPeriod=rows.some(r=>r.presentDays!=null || r.absentDays!=null);
+            const compactDetails=['monthly','period','minimum','student'].includes(currentReport?.detailMode);
             let h='<table><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th>';
             if(hasStatus) h+='<th>الحالة</th>';
-            if(rows.some(r=>r.presentDays!=null)) h+='<th>أيام الحضور</th>';
-            if(rows.some(r=>r.absentDays!=null)) h+='<th>أيام الغياب</th>';
-            if(rows.some(r=>r.dates!=null)) h+='<th>تواريخ الغياب</th>';
+            if(hasPeriod) h+='<th>أيام الحضور</th><th>أيام الغياب</th>';
+            if(hasPeriod && !compactDetails) h+='<th>تواريخ الغياب</th>';
             h+='</tr>';
             rows.forEach((r,i)=>{
-                h+=`<tr><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(r.classNum)}</td>`;
+                const dailyAbsent = currentReport?.title === 'التقرير اليومي' && hasStatus && r.status === 'غائب';
+                h+=`<tr class="${dailyAbsent?'upper-daily-absent':''}"><td>${i+1}</td><td>${escapeReportHtml(r.name)}</td><td>${escapeReportHtml(r.id)}</td><td>${escapeReportHtml(r.grade)}</td><td>${escapeReportHtml(classDisplayLabel(r))}</td>`;
                 if(hasStatus) h+=`<td>${escapeReportHtml(r.status||'')}</td>`;
-                if(rows.some(x=>x.presentDays!=null)) h+=`<td>${r.presentDays??''}</td>`;
-                if(rows.some(x=>x.absentDays!=null)) h+=`<td>${r.absentDays??''}</td>`;
-                if(rows.some(x=>x.dates!=null)) h+=`<td>${(r.dates||[]).map(fmtDate).join('، ')||'لا يوجد'}</td>`;
+                if(hasPeriod) h+=`<td>${r.presentDays??0}</td><td>${r.absentDays??0}</td>`;
+                if(hasPeriod && !compactDetails) h+=`<td class="dates-cell">${escapeReportHtml(formatDatesForCell(r.dates))}</td>`;
                 h+='</tr>';
             });
             return h+'</table>';
+        }
+        function monthlyAbsenceDetailsHtml(rows){
+            const withAbsence=(rows||[]).filter(r=>Number(r.absentDays||0)>0);
+            if(!withAbsence.length) return '<div class="monthly-details-empty">✅ لا توجد تواريخ غياب مسجلة في الفترة.</div>';
+            let h='<div class="monthly-details"><h3>📌 تفاصيل تواريخ الغياب</h3>';
+            withAbsence.forEach((r,i)=>{
+                h+=`<div class="monthly-detail-item"><div class="monthly-detail-title"><b>${i+1}. ${escapeReportHtml(r.name)}</b> — الفصل ${escapeReportHtml(classDisplayLabel(r))} — ${r.absentDays} يوم غياب</div><div class="monthly-detail-dates">${escapeReportHtml(formatDatesForCell(r.dates)).replace(/\n/g,'<br>')}</div></div>`;
+            });
+            return h+'</div>';
+        }
+        function absenceDetailsHtml(rows,title){
+            const withAbsence=(rows||[]).filter(r=>Number(r.absentDays||0)>0);
+            if(!withAbsence.length) return '<div class="monthly-details-empty">✅ لا توجد تواريخ غياب مسجلة في الفترة.</div>';
+            let h=`<div class="monthly-details"><h3>📌 ${escapeReportHtml(title||'تفاصيل تواريخ الغياب')}</h3>`;
+            withAbsence.forEach((r,i)=>{
+                h+=`<div class="monthly-detail-item"><div class="monthly-detail-title"><b>${i+1}. ${escapeReportHtml(r.name)}</b> — الفصل ${escapeReportHtml(classDisplayLabel(r))} — ${r.absentDays} يوم غياب</div><div class="monthly-detail-dates">${escapeReportHtml(formatDatesForCell(r.dates)).replace(/\n/g,'<br>')}</div></div>`;
+            });
+            return h+'</div>';
         }
         function excelSchoolPreamble(title){
             const rows=[
@@ -2045,41 +2331,71 @@
             const affairs=schoolSettings.studentAffairsOfficer?`<span>مسؤول شئون الطلبة: ${escapeReportHtml(schoolSettings.studentAffairsOfficer)}</span>`:'';
             return `<div class="pdf-footer">${manager}${manager&&affairs?' &nbsp;&nbsp; | &nbsp;&nbsp; ':''}${affairs}</div>`;
         }
-
         function classReportSummary(rows){
             const total=rows.length;
-            if(rows.some(r=>r.status!=null)){
+            if(rows.some(r=>r.status!=null && r.status!=='')){
                 const present=rows.filter(r=>r.status==='حاضر').length;
-                const absent=total-present;
+                const absent=rows.filter(r=>r.status==='غائب').length;
+                return `<div class="report-summary"><div class="report-stat">الفصل: ${escapeReportHtml(classDisplayLabel(rows[0]))}</div><div class="report-stat">إجمالي الطلاب: ${total}</div><div class="report-stat">حاضر: ${present}</div><div class="report-stat">غائب: ${absent}</div><div class="report-stat">نسبة الحضور: ${total?Math.round(present/total*100):0}%</div></div>`;
+            }
+            const presentDays=rows.reduce((a,r)=>a+Number(r.presentDays||0),0);
+            const absentDays=rows.reduce((a,r)=>a+Number(r.absentDays||0),0);
+            const absentStudents=rows.filter(r=>Number(r.absentDays||0)>0).length;
+            return `<div class="report-summary"><div class="report-stat">الفصل: ${escapeReportHtml(classDisplayLabel(rows[0]||{}))}</div><div class="report-stat">عدد الطلاب: ${total}</div><div class="report-stat">إجمالي أيام الحضور: ${presentDays}</div><div class="report-stat">إجمالي أيام الغياب: ${absentDays}</div><div class="report-stat">طلاب لهم غياب: ${absentStudents}</div></div>`;
+        }
+        function overallReportSummary(){
+            const rows=currentReport.rows||[];
+            const total=rows.length;
+            if(rows.some(r=>r.status!=null && r.status!=='')){
+                const present=rows.filter(r=>r.status==='حاضر').length;
+                const absent=rows.filter(r=>r.status==='غائب').length;
                 return `<div class="report-summary"><div class="report-stat">إجمالي الطلاب: ${total}</div><div class="report-stat">حاضر: ${present}</div><div class="report-stat">غائب: ${absent}</div><div class="report-stat">نسبة الحضور: ${total?Math.round(present/total*100):0}%</div></div>`;
             }
             const presentDays=rows.reduce((a,r)=>a+Number(r.presentDays||0),0);
             const absentDays=rows.reduce((a,r)=>a+Number(r.absentDays||0),0);
-            return `<div class="report-summary"><div class="report-stat">عدد الطلاب: ${total}</div><div class="report-stat">إجمالي أيام الحضور: ${presentDays}</div><div class="report-stat">إجمالي أيام الغياب: ${absentDays}</div></div>`;
+            const absentStudents=rows.filter(r=>Number(r.absentDays||0)>0).length;
+            return `<div class="report-summary"><div class="report-stat">إجمالي الطلاب: ${total}</div><div class="report-stat">إجمالي أيام الحضور: ${presentDays}</div><div class="report-stat">إجمالي أيام الغياب: ${absentDays}</div><div class="report-stat">طلاب لهم غياب: ${absentStudents}</div></div>`;
         }
         function buildFullReportForPrint(){
             if(!currentReport || !currentReport.rows) return '';
             const pages=[];
-            const firstHeader=reportSchoolHeaderHtml(currentReport.title,currentReport.start,currentReport.end);
-            let first=firstHeader;
-            if(currentReport.html){
-                let stripped=currentReport.html.replace(/^\s*<div id="printableReport"[^>]*>/,'').replace(/<\/div>\s*$/,'');
-                // currentReport.html يأتي من reportShell ويحتوي بالفعل على اسم المدرسة والعنوان والفترة.
-                // نحذف هذه الثلاثة فقط حتى لا تتكرر الدباجة، ونُبقي الإحصاء ومحتوى التقرير.
-                stripped=stripped.replace(/^\s*<h2[^>]*>.*?<\/h2>\s*<h3[^>]*>.*?<\/h3>\s*<div[^>]*>.*?<\/div>\s*/s,'');
-                first+=stripped;
-            }
+            let first=reportSchoolHeaderHtml(currentReport.title,currentReport.start,currentReport.end);
+            first+=`<h3>الإحصائية الشاملة للمدرسة</h3>${overallReportSummary()}`;
             const groups=getReportClassGroups();
-            if(groups.length===0){ pages.push(makePdfPage(first)); return pages.join(''); }
+            if(groups.length){
+                first+=`<h3>ملخص الفصول</h3><table><tr><th>الفصل</th><th>عدد الطلاب</th><th>أيام الحضور</th><th>أيام الغياب</th><th>طلاب لهم غياب</th></tr>`;
+                groups.forEach(g=>{
+                    const presentDays=g.rows.reduce((a,r)=>a+Number(r.presentDays||0),0);
+                    const absentDays=g.rows.reduce((a,r)=>a+Number(r.absentDays||0),0);
+                    const present=g.rows.filter(r=>r.status==='حاضر').length;
+                    const absent=g.rows.filter(r=>r.status==='غائب').length;
+                    const hasStatus=g.rows.some(r=>r.status!=null && r.status!=='');
+                    first+=`<tr><td>${escapeReportHtml(`${g.classNum}/${g.grade}`)}</td><td>${g.rows.length}</td><td>${hasStatus?present:presentDays}</td><td>${hasStatus?absent:absentDays}</td><td>${hasStatus?absent:(g.rows.filter(r=>Number(r.absentDays||0)>0).length)}</td></tr>`;
+                });
+                first+='</table>';
+            }
             pages.push(makePdfPage(first));
+            const rowsPerPage = 50;
             groups.forEach(g=>{
-                const chunks=chunkArray(g.rows,16);
+                const chunks=chunkArray(g.rows,rowsPerPage);
                 chunks.forEach((batch,idx)=>{
-                    let b=`<h2>الفصل ${escapeReportHtml(g.classNum)}${chunks.length>1?` — صفحة ${idx+1}`:''}</h2>${classReportSummary(g.rows)}`;
+                    let b=`<h2>${idx===0?'كشف':'استكمال كشف'} الفصل ${escapeReportHtml(`${g.classNum}/${g.grade}`)}${chunks.length>1?` — صفحة ${idx+1} من ${chunks.length}`:''}</h2>${classReportSummary(g.rows)}`;
                     b+=reportRowsTable(batch);
                     pages.push(makePdfPage(b));
                 });
             });
+            if(['monthly','period','minimum','student'].includes(currentReport.detailMode)){
+                groups.forEach(g=>{
+                    const detailRows=g.rows.filter(r=>Number(r.absentDays||0)>0);
+                    if(!detailRows.length) return;
+                    const chunks=chunkArray(detailRows,20);
+                    chunks.forEach((batch,idx)=>{
+                        let b=`<h2>تفاصيل تواريخ الغياب — الفصل ${escapeReportHtml(`${g.classNum}/${g.grade}`)}${chunks.length>1?` — صفحة ${idx+1} من ${chunks.length}`:''}</h2>`;
+                        b+=batch.map((r,j)=>`<div class="monthly-detail-print"><b>${j+1}. ${escapeReportHtml(r.name)}</b> — ${r.absentDays} يوم غياب<br>${escapeReportHtml(formatDatesForCell(r.dates)).replace(/\n/g,'<br>')}</div>`).join('');
+                        pages.push(makePdfPage(b));
+                    });
+                });
+            }
             return pages.join('');
         }
         function printCurrentReport(){
@@ -2098,50 +2414,104 @@
             if(!currentReport.rows.length){alert('لا توجد بيانات للتصدير.');return;}
             const wb=XLSX.utils.book_new();
             const makeRows=(rows)=>rows.map((r,i)=>({
-                'م':i+1,'اسم الطالب':r.name,'الرقم القومي':r.id,'الصف':r.grade,'الفصل':r.classNum,
+                'م':i+1,'اسم الطالب':r.name,'الرقم القومي':r.id,'الصف':r.grade,'الفصل':classDisplayLabel(r),
                 'الحالة':r.status??'', 'أيام الحضور':r.presentDays??'', 'أيام الغياب':r.absentDays??'',
-                'تواريخ الغياب':(r.dates||[]).map(fmtDate).join('، ')
+                'تواريخ الغياب':formatDatesForCell(r.dates)
             }));
             const allRows=makeRows(currentReport.rows);
             const wsData=excelSchoolPreamble(`📊 ${currentReport.title}`);
             wsData.push(['الفترة',`${fmtDate(currentReport.start)} إلى ${fmtDate(currentReport.end)}`],[]);
-            if(currentReport.rows.some(r=>r.status!=null)){
-                const total=allRows.length, present=allRows.filter(r=>r['الحالة']==='حاضر').length;
-                wsData.push(['الإحصائية العامة','العدد','النسبة'],['إجمالي الطلاب',total,'100%'],['الحاضرون',present,total?Math.round(present/total*100)+'%':'0%'],['الغائبون',total-present,total?Math.round((total-present)/total*100)+'%':'0%'],[]);
-            }
-            wsData.push(['كشف الطلاب بالكامل']);
+            const hasStatus=currentReport.rows.some(r=>r.status!=null && r.status!=='');
+            const total=allRows.length;
+            const present=hasStatus?allRows.filter(r=>r['الحالة']==='حاضر').length:currentReport.rows.reduce((a,r)=>a+Number(r.presentDays||0),0);
+            const absent=hasStatus?allRows.filter(r=>r['الحالة']==='غائب').length:currentReport.rows.reduce((a,r)=>a+Number(r.absentDays||0),0);
+            const absentStudents=hasStatus?allRows.filter(r=>r['الحالة']==='غائب').length:currentReport.rows.filter(r=>Number(r.absentDays||0)>0).length;
+            wsData.push(['الإحصائية الشاملة','القيمة'],['إجمالي الطلاب',total],['إجمالي أيام/حالات الحضور',present],['إجمالي أيام/حالات الغياب',absent],['طلاب لهم غياب',absentStudents],[]);
+            wsData.push(['ملخص الفصول'],['الفصل','عدد الطلاب','الحضور','الغياب','طلاب لهم غياب']);
+            getReportClassGroups().forEach(g=>{
+                const gp=hasStatus?g.rows.filter(r=>r.status==='حاضر').length:g.rows.reduce((a,r)=>a+Number(r.presentDays||0),0);
+                const ga=hasStatus?g.rows.filter(r=>r.status==='غائب').length:g.rows.reduce((a,r)=>a+Number(r.absentDays||0),0);
+                const gas=hasStatus?ga:g.rows.filter(r=>Number(r.absentDays||0)>0).length;
+                wsData.push([`${g.classNum}/${g.grade}`,g.rows.length,gp,ga,gas]);
+            });
+            wsData.push([],['كشف الطلاب بالكامل']);
             wsData.push(['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة','أيام الحضور','أيام الغياب','تواريخ الغياب']);
             allRows.forEach(r=>wsData.push([r['م'],r['اسم الطالب'],r['الرقم القومي'],r['الصف'],r['الفصل'],r['الحالة'],r['أيام الحضور'],r['أيام الغياب'],r['تواريخ الغياب']]));
             const ws=XLSX.utils.aoa_to_sheet(wsData);
-            ws['!dir']='rtl'; ws['!cols']=[{wch:6},{wch:34},{wch:20},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14},{wch:45}];
+            ws['!dir']='rtl'; ws['!cols']=[{wch:6},{wch:34},{wch:20},{wch:14},{wch:12},{wch:14},{wch:18},{wch:18},{wch:45}];
             XLSX.utils.book_append_sheet(wb,ws,'التقرير الشامل');
             getReportClassGroups().forEach(g=>{
                 const cr=makeRows(g.rows);
-                const d=excelSchoolPreamble(`📚 ${currentReport.title} — الفصل ${g.classNum}`);
+                const d=excelSchoolPreamble(`📚 ${currentReport.title} — الفصل ${g.classNum}/${g.grade}`);
                 d.push(['الفترة',`${fmtDate(currentReport.start)} إلى ${fmtDate(currentReport.end)}`],[]);
                 d.push(['إحصائية الفصل'],['البيان','العدد']);
                 if(cr.length){
-                    if(g.rows.some(r=>r.status!=null)){
-                        const p=cr.filter(r=>r['الحالة']==='حاضر').length; d.push(['إجمالي الطلاب',cr.length],['الحاضرون',p],['الغائبون',cr.length-p],['نسبة الحضور',cr.length?Math.round(p/cr.length*100)+'%':'0%'],[]);
+                    if(hasStatus){
+                        const p=cr.filter(r=>r['الحالة']==='حاضر').length, a=cr.filter(r=>r['الحالة']==='غائب').length;
+                        d.push(['إجمالي الطلاب',cr.length],['الحاضرون',p],['الغائبون',a],['نسبة الحضور',cr.length?Math.round(p/cr.length*100)+'%':'0%'],[]);
                     }else{
-                        d.push(['إجمالي الطلاب',cr.length],['إجمالي أيام الحضور',g.rows.reduce((a,r)=>a+Number(r.presentDays||0),0)],['إجمالي أيام الغياب',g.rows.reduce((a,r)=>a+Number(r.absentDays||0),0)],[]);
+                        d.push(['إجمالي الطلاب',cr.length],['إجمالي أيام الحضور',g.rows.reduce((a,r)=>a+Number(r.presentDays||0),0)],['إجمالي أيام الغياب',g.rows.reduce((a,r)=>a+Number(r.absentDays||0),0)],['طلاب لهم غياب',g.rows.filter(r=>Number(r.absentDays||0)>0).length],[]);
                     }
                 }
-                d.push(['كشف الطلاب'],['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة','أيام الحضور','أيام الغياب','تواريخ الغياب']);
+                d.push([`كشف الطلاب — الفصل ${g.classNum}/${g.grade}`],['م','اسم الطالب','الرقم القومي','الصف','الفصل','الحالة','أيام الحضور','أيام الغياب','تواريخ الغياب']);
                 cr.forEach(r=>d.push([r['م'],r['اسم الطالب'],r['الرقم القومي'],r['الصف'],r['الفصل'],r['الحالة'],r['أيام الحضور'],r['أيام الغياب'],r['تواريخ الغياب']]));
                 const cw=XLSX.utils.aoa_to_sheet(d);
-                cw['!dir']='rtl'; cw['!cols']=ws['!cols'];
-                let sheetName=`الفصل ${g.classNum}`.replace(/[\\\/?*\[\]:]/g,'').slice(0,31);
-                if(wb.SheetNames.includes(sheetName)) sheetName=(sheetName.slice(0,28)+'...').slice(0,31);
-                XLSX.utils.book_append_sheet(wb,cw,sheetName);
+                cw['!dir']='rtl'; for(const addr of Object.keys(cw)){ if(addr[0]!=='!') cw[addr].s={alignment:{vertical:'top',wrapText:true}}; } cw['!cols']=ws['!cols'];
+                let safe=`الفصل ${g.grade}-${g.classNum}`.replace(/[\\\/?*\[\]:]/g,'').slice(0,31);
+                if(wb.SheetNames.includes(safe)) safe=(safe.slice(0,28)+'...').slice(0,31);
+                XLSX.utils.book_append_sheet(wb,cw,safe);
             });
+            if(['monthly','period','minimum','student'].includes(currentReport.detailMode)){
+                const dd=excelSchoolPreamble(`📌 تفاصيل تواريخ الغياب — ${currentReport.title}`);
+                dd.push(['م','اسم الطالب','الرقم القومي','الفصل','أيام الغياب','تواريخ الغياب']);
+                currentReport.rows.filter(r=>Number(r.absentDays||0)>0).forEach((r,i)=>dd.push([i+1,r.name,r.id,classDisplayLabel(r),r.absentDays,(r.dates||[]).map(fmtDate).join('، ')]));
+                const dw=XLSX.utils.aoa_to_sheet(dd); dw['!dir']='rtl'; dw['!cols']=[{wch:6},{wch:34},{wch:20},{wch:12},{wch:14},{wch:70}];
+                XLSX.utils.book_append_sheet(wb,dw,'تفاصيل الغياب');
+            }
             const datePart=currentReport.start===currentReport.end?currentReport.start:`${currentReport.start}_${currentReport.end}`;
             XLSX.writeFile(wb,`تقرير_${currentReport.title.replace(/[^\u0600-\u06FF\w\s-]/g,'')}_${datePart}.xlsx`);
-            showToast('📊 تم حفظ Excel بالدباجة + التقرير الشامل + شيت مستقل لكل فصل.');
+            showToast('📊 تم حفظ Excel بالدباجة + الإحصاء الشامل + ملخص الفصول + شيت مستقل لكل فصل.');
         }
         function whatsappCurrentReport(){
             if(!currentReport.text)return; whatsappReport(currentReport.text);
         }
+        function scrollReportTop(){ window.scrollTo({top:0,behavior:'smooth'}); }
+        function scrollReportBottom(){ const h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight); window.scrollTo({top:h,behavior:'smooth'}); }
+
+        async function resetSchoolForNewYear(){
+            if(!currentSchool || !isSchoolAdmin()){ alert('⛔ هذه الخاصية لمدير المدرسة فقط.'); return; }
+            const ok1=confirm('⚠️ تهيئة المدرسة لبداية عام جديد\n\nسيتم حذف جميع الطلاب وسجلات الحضور والغياب الخاصة بهذه المدرسة فقط.\n\nلن يتم حذف المدرسة أو حسابات المستخدمين أو إعدادات المدرسة.\n\nهل تريد المتابعة؟');
+            if(!ok1) return;
+            const ok2=confirm('🚨 تأكيد أخير\n\nهذا الإجراء لا يمكن التراجع عنه من داخل النظام.\n\nاضغط «موافق» فقط إذا كنت متأكدًا.');
+            if(!ok2) return;
+            const confirmText=prompt('اكتب OK للتأكيد النهائي على التهيئة:');
+            if(confirmText !== 'OK'){ alert('تم إلغاء العملية.'); return; }
+            try{
+                showToast('⏳ جاري تهيئة المدرسة...');
+                const {data:rows,error:selErr}=await supabaseClient.from('students').select('id').eq('school_id',currentSchool.id);
+                if(selErr) throw selErr;
+                const ids=(rows||[]).map(r=>r.id);
+                if(ids.length){
+                    for(let i=0;i<ids.length;i+=500){
+                        const batch=ids.slice(i,i+500);
+                        const {error:aErr}=await supabaseClient.from('attendance').delete().eq('school_id',currentSchool.id).in('student_id',batch);
+                        if(aErr) throw aErr;
+                    }
+                    for(let i=0;i<ids.length;i+=500){
+                        const batch=ids.slice(i,i+500);
+                        const {error:sErr}=await supabaseClient.from('students').delete().eq('school_id',currentSchool.id).in('id',batch);
+                        if(sErr) throw sErr;
+                    }
+                }
+                schoolSettings.attendanceSession={openDate:'',closedDates:[]};
+                await supabaseClient.from('school_settings').upsert({school_id:currentSchool.id,settings:schoolSettings,updated_at:new Date().toISOString()},{onConflict:'school_id'});
+                students=[]; attendance={};
+                document.getElementById('datePicker').value=todayISO();
+                saveData(); updateAttendanceSessionUI();
+                showToast('✅ تمت تهيئة المدرسة لبداية عام جديد. يمكنك الآن استيراد الطلاب الحقيقيين.');
+            }catch(e){ console.error(e); alert('❌ تعذر تهيئة المدرسة: '+(e.message||e)); }
+        }
+        
         // تهيئة تواريخ التقارير
         (function initReportDates(){
             const t=todayISO(); const week=addDaysISO(t,-6); const month=t.slice(0,7);
@@ -2160,7 +2530,7 @@
             updateAttendanceSessionUI();
             const {data}=await supabaseClient.auth.getSession();
             if(data && data.session && data.session.user){
-                try{ currentUser=data.session.user; await loadCloudSchool(); showLogin(false); await loadData(); loadSchoolSettings(); saveData(); }
+                try{ currentUser=data.session.user; await loadCloudSchool(); showLogin(false); await loadData(); loadSchoolSettings(); applyRoleUI(); ensureArchiveUI(); saveData(); }
                 catch(e){ await supabaseClient.auth.signOut(); currentUser=null; currentSchool=null; showLogin(true); }
             }
         }
